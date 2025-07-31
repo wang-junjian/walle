@@ -1,8 +1,17 @@
 'use client';
 
+import { useState } from 'react';
 import { ChatInterface } from '@/components/ChatInterface';
 
 export default function Home() {
+  const [selectedModel, setSelectedModel] = useState<string>('');
+
+  const handleModelChange = (model: string) => {
+    setSelectedModel(model);
+    // You can add additional logic here if needed
+    console.log('Model changed to:', model);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
       <div className="container mx-auto px-4 py-8">
@@ -16,7 +25,10 @@ export default function Home() {
         </header>
         
         <main className="max-w-4xl mx-auto">
-          <ChatInterface />
+          <ChatInterface 
+            selectedModel={selectedModel} 
+            onModelChange={handleModelChange}
+          />
         </main>
       </div>
     </div>

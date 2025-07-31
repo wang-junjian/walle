@@ -4,8 +4,14 @@ import { useState } from 'react';
 import { Message, StreamChunk, MessageStats } from '@/types/chat';
 import { MessageList } from './MessageList';
 import { InputArea } from './InputArea';
+import { ModelSelector } from './ModelSelector';
 
-export function ChatInterface() {
+interface ChatInterfaceProps {
+  selectedModel?: string;
+  onModelChange?: (model: string) => void;
+}
+
+export function ChatInterface({ selectedModel, onModelChange }: ChatInterfaceProps) {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
@@ -51,6 +57,11 @@ export function ChatInterface() {
       formData.append('message', input);
       if (selectedFile) {
         formData.append('image', selectedFile);
+      }
+      
+      // Add selected model if available
+      if (selectedModel) {
+        formData.append('model', selectedModel);
       }
 
       // Add conversation history (excluding the current user message that was just added)
@@ -156,6 +167,18 @@ export function ChatInterface() {
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl overflow-hidden h-[600px] flex flex-col">
+      {/* Chat Header with Model Selector */}
+      <div className="border-b border-gray-200 dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-750">
+        <div className="flex justify-between items-center">
+          <h2 className="text-lg font-semibold text-gray-800 dark:text-white">
+            对话
+          </h2>
+          {onModelChange && (
+            <ModelSelector onModelChange={onModelChange} />
+          )}
+        </div>
+      </div>
+
       <div className="flex-1 overflow-hidden">
         <MessageList messages={messages} isLoading={isLoading} />
       </div>

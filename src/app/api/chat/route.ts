@@ -13,6 +13,7 @@ export async function POST(request: NextRequest) {
     const message = formData.get('message') as string;
     const imageFile = formData.get('image') as File | null;
     const conversationHistory = formData.get('history') as string;
+    const selectedModel = formData.get('model') as string;
 
     if (!message && !imageFile) {
       return NextResponse.json(
@@ -21,8 +22,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Determine which model to use
+    let modelToUse = process.env.OPENAI_MODEL || 'gpt-4o-mini';
+    
+    // If a specific model is selected and it's in the allowed list, use it
+    if (selectedModel) {
+      const modelListEnv = process.env.MODEL_LIST;
+      if (modelListEnv) {
+        const allowedModels = modelListEnv.split(',').map(m => m.trim());
+        if (allowedModels.includes(selectedModel)) {
+          modelToUse = selectedModel;
+        }
+      }
+    }
+
     // Parse conversation history
-    let messages: OpenAI.ChatCompletionMessageParam[] = [
+    const baseMessages: OpenAI.ChatCompletionMessageParam[] = [
       {
         role: 'system',
         content: `You are Walle, a helpful AI assistant. You can process text and images. 
@@ -37,12 +52,12 @@ export async function POST(request: NextRequest) {
         const history = JSON.parse(conversationHistory);
         // Add previous messages (excluding system message and current user message)
         const previousMessages = history
-          .filter((msg: any) => msg.role !== 'system')
-          .map((msg: any) => ({
+          .filter((msg: { role: string }) => msg.role !== 'system')
+          .map((msg: { role: string; content: string }) => ({
             role: msg.role,
             content: msg.content
           }));
-        messages.push(...previousMessages);
+        baseMessages.push(...previousMessages);
       } catch (error) {
         console.error('Error parsing conversation history:', error);
       }
@@ -55,7 +70,7 @@ export async function POST(request: NextRequest) {
       const base64Image = Buffer.from(imageBuffer).toString('base64');
       const imageUrl = `data:${imageFile.type};base64,${base64Image}`;
 
-      messages.push({
+      baseMessages.push({
         role: 'user',
         content: [
           {
@@ -72,7 +87,7 @@ export async function POST(request: NextRequest) {
         ]
       });
     } else {
-      messages.push({
+      baseMessages.push({
         role: 'user',
         content: message
       });
@@ -80,8 +95,8 @@ export async function POST(request: NextRequest) {
 
     // Call OpenAI API with streaming
     const stream = await openai.chat.completions.create({
-      model: process.env.OPENAI_MODEL || 'gpt-4o-mini', // Use configured model from env
-      messages: messages,
+      model: modelToUse, // Use the selected or configured model
+      messages: baseMessages,
       max_tokens: 1000,
       temperature: 0.7,
       stream: true,
