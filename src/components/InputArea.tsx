@@ -74,7 +74,7 @@ export function InputArea({
             onChange={(e) => setInput(e.target.value)}
             onKeyPress={onKeyPress}
             placeholder={t('chat.typeMessage')}
-            className="w-full resize-none rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full resize-none rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:border-gray-400 focus:outline-none focus:ring-1 focus:ring-gray-400 dark:focus:border-gray-500 dark:focus:ring-gray-500"
             rows={2}
             style={{ minHeight: '80px', maxHeight: '240px' }}
             disabled={isLoading}

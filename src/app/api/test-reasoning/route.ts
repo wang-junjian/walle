@@ -1,6 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 
-export async function POST(request: NextRequest) {
+export async function POST() {
   try {
     // Create a mock stream that simulates DeepSeek-R1 reasoning + content
     const encoder = new TextEncoder();

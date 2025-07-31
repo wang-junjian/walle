@@ -59,7 +59,11 @@ export function ChatInterface({ selectedModel, onModelChange }: ChatInterfacePro
       content: input,
       role: 'user',
       timestamp: new Date(),
-      attachments: selectedFile ? [{ type: 'image', file: selectedFile }] : undefined,
+      attachments: selectedFile ? [{ 
+        type: 'image', 
+        file: selectedFile
+        // Don't create URL here, let MessageBubble handle it
+      }] : undefined,
     };
 
     setMessages(prev => [...prev, userMessage]);
