@@ -1,0 +1,39 @@
+{
+  "chat": {
+    "title": "Walle AI 助手",
+    "subtitle": "你的智能助手，支持文本、语音和图像交互",
+    "welcome": "你好！我是Walle，你的AI助手。我可以帮助你进行文本、语音和图像交互。今天我能为你做些什么？",
+    "newChat": "新对话",
+    "sendMessage": "发送消息",
+    "typeMessage": "输入你的消息...",
+    "uploadImage": "上传图片",
+    "attachFile": "附加文件",
+    "loading": "Walle 正在思考中...",
+    "error": "抱歉，处理你的请求时遇到了错误。请重试。",
+    "modelSelector": "选择模型",
+    "languageSelector": "语言",
+    "imageAttached": "已附加图片"
+  },
+  "stats": {
+    "inputTokens": "输入令牌",
+    "outputTokens": "输出令牌",
+    "totalTokens": "令牌统计",
+    "duration": "持续时间",
+    "tokensPerSecond": "令牌/秒"
+  },
+  "languages": {
+    "en": "English",
+    "zh": "中文"
+  },
+  "common": {
+    "send": "发送",
+    "cancel": "取消",
+    "close": "关闭",
+    "save": "保存",
+    "settings": "设置"
+  },
+  "voice": {
+    "startRecording": "开始语音录制",
+    "stopRecording": "停止录制"
+  }
+}

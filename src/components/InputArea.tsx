@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Send, Mic, Image as ImageIcon, X, Loader2 } from 'lucide-react';
 
 interface InputAreaProps {
@@ -22,6 +23,7 @@ export function InputArea({
   onKeyPress,
   isLoading
 }: InputAreaProps) {
+  const { t } = useTranslation();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isRecording, setIsRecording] = useState(false);
 
@@ -71,7 +73,7 @@ export function InputArea({
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyPress={onKeyPress}
-            placeholder="Type your message..."
+            placeholder={t('chat.typeMessage')}
             className="w-full resize-none rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
             rows={1}
             style={{ minHeight: '40px', maxHeight: '120px' }}
@@ -84,7 +86,7 @@ export function InputArea({
             onClick={handleImageUpload}
             className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-lg transition-colors"
             disabled={isLoading}
-            title="Upload image"
+            title={t('chat.uploadImage')}
           >
             <ImageIcon className="h-5 w-5" />
           </button>
@@ -97,7 +99,7 @@ export function InputArea({
                 : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600'
             }`}
             disabled={isLoading}
-            title={isRecording ? 'Stop recording' : 'Start voice recording'}
+            title={isRecording ? t('voice.stopRecording') : t('voice.startRecording')}
           >
             <Mic className={`h-5 w-5 ${isRecording ? 'animate-pulse' : ''}`} />
           </button>
@@ -106,7 +108,7 @@ export function InputArea({
             onClick={onSendMessage}
             disabled={(!input.trim() && !selectedFile) || isLoading}
             className="p-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            title="Send message"
+            title={t('chat.sendMessage')}
           >
             {isLoading ? (
               <Loader2 className="h-5 w-5 animate-spin" />

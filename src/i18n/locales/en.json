@@ -1,0 +1,39 @@
+{
+  "chat": {
+    "title": "Walle AI Assistant",
+    "subtitle": "Your intelligent assistant for text, voice, and image interactions",
+    "welcome": "Hello! I'm Walle, your AI assistant. I can help you with text, voice, and image interactions. How can I assist you today?",
+    "newChat": "New Chat",
+    "sendMessage": "Send message",
+    "typeMessage": "Type your message...",
+    "uploadImage": "Upload image",
+    "attachFile": "Attach file",
+    "loading": "Walle is thinking...",
+    "error": "Sorry, I encountered an error while processing your request. Please try again.",
+    "modelSelector": "Select Model",
+    "languageSelector": "Language",
+    "imageAttached": "Image attached"
+  },
+  "stats": {
+    "inputTokens": "Input Tokens",
+    "outputTokens": "Output Tokens", 
+    "totalTokens": "Token Statistics",
+    "duration": "Duration",
+    "tokensPerSecond": "Tokens/sec"
+  },
+  "languages": {
+    "en": "English",
+    "zh": "中文"
+  },
+  "common": {
+    "send": "Send",
+    "cancel": "Cancel",
+    "close": "Close",
+    "save": "Save",
+    "settings": "Settings"
+  },
+  "voice": {
+    "startRecording": "Start voice recording",
+    "stopRecording": "Stop recording"
+  }
+}

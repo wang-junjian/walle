@@ -1,12 +1,14 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 
 interface ModelSelectorProps {
   onModelChange: (model: string) => void;
 }
 
 export function ModelSelector({ onModelChange }: ModelSelectorProps) {
+  const { t } = useTranslation();
   const [models, setModels] = useState<string[]>([]);
   const [selectedModel, setSelectedModel] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
@@ -64,7 +66,7 @@ export function ModelSelector({ onModelChange }: ModelSelectorProps) {
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-3 border border-gray-200 dark:border-gray-700">
       <div className="flex items-center space-x-2">
         <label htmlFor="model-select" className="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
-          模型:
+          {t('chat.modelSelector')}:
         </label>
         <select
           id="model-select"

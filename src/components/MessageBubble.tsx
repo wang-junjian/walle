@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Message } from '@/types/chat';
 import { User, Bot, Image as ImageIcon, BarChart3, ChevronDown, ChevronUp } from 'lucide-react';
 import { formatTime } from '@/utils/time';
@@ -10,6 +11,7 @@ interface MessageBubbleProps {
 }
 
 export function MessageBubble({ message }: MessageBubbleProps) {
+  const { t } = useTranslation();
   const isUser = message.role === 'user';
   const [showStats, setShowStats] = useState(false);
 
@@ -34,7 +36,7 @@ export function MessageBubble({ message }: MessageBubbleProps) {
               {attachment.type === 'image' && (
                 <div className="flex items-center space-x-2 text-sm opacity-75">
                   <ImageIcon className="h-4 w-4" />
-                  <span>Image attached</span>
+                  <span>{t('chat.imageAttached')}</span>
                 </div>
               )}
             </div>
@@ -51,7 +53,7 @@ export function MessageBubble({ message }: MessageBubbleProps) {
               >
                 <div className="flex items-center space-x-1">
                   <BarChart3 className="h-3 w-3" />
-                  <span className="font-medium">Token 统计</span>
+                  <span className="font-medium">{t('stats.totalTokens')}</span>
                   <span className="text-gray-500">
                     ({message.stats.totalTokens} tokens, {message.stats.tokensPerSecond} t/s)
                   </span>
@@ -66,23 +68,23 @@ export function MessageBubble({ message }: MessageBubbleProps) {
               {showStats && (
                 <div className="mt-2 space-y-1 text-xs opacity-75">
                   <div className="flex justify-between">
-                    <span>输入:</span>
+                    <span>{t('stats.inputTokens')}:</span>
                     <span>{message.stats.inputTokens} tokens</span>
                   </div>
                   <div className="flex justify-between">
-                    <span>输出:</span>
+                    <span>{t('stats.outputTokens')}:</span>
                     <span>{message.stats.outputTokens} tokens</span>
                   </div>
                   <div className="flex justify-between">
-                    <span>总计:</span>
+                    <span>{t('stats.totalTokens')}:</span>
                     <span>{message.stats.totalTokens} tokens</span>
                   </div>
                   <div className="flex justify-between">
-                    <span>耗时:</span>
+                    <span>{t('stats.duration')}:</span>
                     <span>{message.stats.duration}s</span>
                   </div>
                   <div className="flex justify-between">
-                    <span>速度:</span>
+                    <span>{t('stats.tokensPerSecond')}:</span>
                     <span>{message.stats.tokensPerSecond} tokens/s</span>
                   </div>
                 </div>

@@ -1,10 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Message, StreamChunk, MessageStats } from '@/types/chat';
 import { MessageList } from './MessageList';
 import { InputArea } from './InputArea';
 import { ModelSelector } from './ModelSelector';
+import { LanguageSelector } from './LanguageSelector';
 
 interface ChatInterfaceProps {
   selectedModel?: string;
@@ -12,27 +14,38 @@ interface ChatInterfaceProps {
 }
 
 export function ChatInterface({ selectedModel, onModelChange }: ChatInterfaceProps) {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: '1',
-      content: 'Hello! I\'m Walle, your AI assistant. I can help you with text, voice, and image interactions. How can I assist you today?',
-      role: 'assistant',
-      timestamp: new Date(),
-    },
-  ]);
+  const { t, i18n } = useTranslation();
+  
+  const getWelcomeMessage = (): Message => ({
+    id: '1',
+    content: t('chat.welcome'),
+    role: 'assistant',
+    timestamp: new Date(),
+  });
+
+  const [messages, setMessages] = useState<Message[]>([getWelcomeMessage()]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
+  // Update welcome message when language changes
+  useEffect(() => {
+    setMessages(prevMessages => {
+      if (prevMessages.length > 0 && prevMessages[0].id === '1') {
+        // Update the welcome message
+        const updatedMessages = [...prevMessages];
+        updatedMessages[0] = {
+          ...updatedMessages[0],
+          content: t('chat.welcome'),
+        };
+        return updatedMessages;
+      }
+      return prevMessages;
+    });
+  }, [i18n.language, t]);
+
   const handleNewChat = () => {
-    setMessages([
-      {
-        id: '1',
-        content: 'Hello! I\'m Walle, your AI assistant. I can help you with text, voice, and image interactions. How can I assist you today?',
-        role: 'assistant',
-        timestamp: new Date(),
-      },
-    ]);
+    setMessages([getWelcomeMessage()]);
     setInput('');
     setSelectedFile(null);
     setIsLoading(false);
@@ -162,7 +175,7 @@ export function ChatInterface({ selectedModel, onModelChange }: ChatInterfacePro
       console.error('Error sending message:', error);
       const errorMessage: Message = {
         id: (Date.now() + 2).toString(),
-        content: 'Sorry, I encountered an error while processing your request. Please try again.',
+        content: t('chat.error'),
         role: 'assistant',
         timestamp: new Date(),
       };
@@ -201,11 +214,14 @@ export function ChatInterface({ selectedModel, onModelChange }: ChatInterfacePro
                 d="M12 4v16m8-8H4" 
               />
             </svg>
-            新对话
+            {t('chat.newChat')}
           </button>
-          {onModelChange && (
-            <ModelSelector onModelChange={onModelChange} />
-          )}
+          <div className="flex items-center gap-2">
+            <LanguageSelector />
+            {onModelChange && (
+              <ModelSelector onModelChange={onModelChange} />
+            )}
+          </div>
         </div>
       </div>
 

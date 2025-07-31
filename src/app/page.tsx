@@ -1,9 +1,11 @@
 'use client';
 
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ChatInterface } from '@/components/ChatInterface';
 
 export default function Home() {
+  const { t } = useTranslation();
   const [selectedModel, setSelectedModel] = useState<string>('');
 
   const handleModelChange = (model: string) => {
@@ -17,10 +19,10 @@ export default function Home() {
       <div className="container mx-auto px-4 py-8">
         <header className="text-center mb-8">
           <h1 className="text-4xl font-bold text-gray-800 dark:text-white mb-2">
-            🤖 Walle AI Assistant
+            🤖 {t('chat.title')}
           </h1>
           <p className="text-lg text-gray-600 dark:text-gray-300">
-            Your intelligent assistant for text, voice, and image interactions
+            {t('chat.subtitle')}
           </p>
         </header>
         

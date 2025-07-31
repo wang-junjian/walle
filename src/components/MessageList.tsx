@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Message } from '@/types/chat';
 import { MessageBubble } from './MessageBubble';
 import { Loader2 } from 'lucide-react';
@@ -11,6 +12,7 @@ interface MessageListProps {
 }
 
 export function MessageList({ messages, isLoading }: MessageListProps) {
+  const { t } = useTranslation();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -33,7 +35,7 @@ export function MessageList({ messages, isLoading }: MessageListProps) {
             <div className="flex items-center space-x-2">
               <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
               <span className="text-sm text-gray-600 dark:text-gray-300">
-                Walle is thinking...
+                {t('chat.loading')}
               </span>
             </div>
           </div>
