@@ -15,19 +15,21 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
-      <div className="container mx-auto px-4 py-8">
-        <header className="text-center mb-8">
+    <div className="w-screen h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col p-4 max-w-none">
+        <header className="text-center mb-6 flex-shrink-0">
           <h1 className="text-4xl font-bold text-gray-800 dark:text-white mb-2">
             🤖 {t('chat.title')}
           </h1>
         </header>
         
-        <main className="max-w-4xl mx-auto">
-          <ChatInterface 
-            selectedModel={selectedModel} 
-            onModelChange={handleModelChange}
-          />
+        <main className="flex-1 flex justify-center">
+          <div className="w-full max-w-4xl">
+            <ChatInterface 
+              selectedModel={selectedModel} 
+              onModelChange={handleModelChange}
+            />
+          </div>
         </main>
       </div>
     </div>

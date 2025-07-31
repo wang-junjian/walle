@@ -193,9 +193,9 @@ export function ChatInterface({ selectedModel, onModelChange }: ChatInterfacePro
   };
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl overflow-hidden h-[600px] flex flex-col">
+    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl overflow-hidden h-full flex flex-col">
       {/* Chat Header with New Chat Button */}
-      <div className="border-b border-gray-200 dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-750">
+      <div className="border-b border-gray-200 dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-750 flex-shrink-0">
         <div className="flex justify-between items-center">
           <button
             onClick={handleNewChat}
@@ -229,7 +229,7 @@ export function ChatInterface({ selectedModel, onModelChange }: ChatInterfacePro
         <MessageList messages={messages} isLoading={isLoading} />
       </div>
       
-      <div className="border-t border-gray-200 dark:border-gray-700 p-4">
+      <div className="border-t border-gray-200 dark:border-gray-700 p-4 flex-shrink-0">
         <InputArea
           input={input}
           setInput={setInput}
