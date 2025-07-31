@@ -4,6 +4,7 @@ export interface Message {
   role: 'user' | 'assistant';
   timestamp: Date;
   attachments?: Attachment[];
+  stats?: MessageStats;
 }
 
 export interface Attachment {
@@ -19,4 +20,26 @@ export interface ChatResponse {
     completion_tokens: number;
     total_tokens: number;
   };
+}
+
+export interface MessageStats {
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+  duration: string;
+  tokensPerSecond: string;
+  finishReason?: string;
+}
+
+export interface StreamChunk {
+  type: 'content' | 'stats' | 'error';
+  content?: string;
+  inputTokens?: number;
+  outputTokens?: number;
+  totalTokens?: number;
+  duration?: string;
+  tokensPerSecond?: string;
+  finishReason?: string;
+  error?: string;
+  details?: string;
 }

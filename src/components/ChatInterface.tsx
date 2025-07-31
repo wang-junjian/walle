@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Message } from '@/types/chat';
+import { Message, StreamChunk, MessageStats } from '@/types/chat';
 import { MessageList } from './MessageList';
 import { InputArea } from './InputArea';
 
@@ -34,6 +34,17 @@ export function ChatInterface() {
     setSelectedFile(null);
     setIsLoading(true);
 
+    // Create a placeholder message for streaming response
+    const assistantMessageId = (Date.now() + 1).toString();
+    const assistantMessage: Message = {
+      id: assistantMessageId,
+      content: '',
+      role: 'assistant',
+      timestamp: new Date(),
+    };
+
+    setMessages(prev => [...prev, assistantMessage]);
+
     try {
       // Prepare the request data
       const formData = new FormData();
@@ -41,6 +52,14 @@ export function ChatInterface() {
       if (selectedFile) {
         formData.append('image', selectedFile);
       }
+
+      // Add conversation history (excluding the current user message that was just added)
+      const conversationHistory = messages.map(msg => ({
+        role: msg.role,
+        content: msg.content,
+        // Don't include attachments in history to keep it clean
+      }));
+      formData.append('history', JSON.stringify(conversationHistory));
 
       const response = await fetch('/api/chat', {
         method: 'POST',
@@ -51,25 +70,78 @@ export function ChatInterface() {
         throw new Error('Failed to get response');
       }
 
-      const data = await response.json();
-      
-      const aiMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        content: data.message,
-        role: 'assistant',
-        timestamp: new Date(),
-      };
+      // Handle streaming response
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+      let accumulatedContent = '';
+      let messageStats: MessageStats | undefined;
 
-      setMessages(prev => [...prev, aiMessage]);
+      if (reader) {
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            const chunk = decoder.decode(value, { stream: true });
+            const lines = chunk.split('\n');
+
+            for (const line of lines) {
+              if (line.startsWith('data: ')) {
+                const data = line.slice(6);
+                if (data === '[DONE]') {
+                  continue;
+                }
+
+                try {
+                  const parsed: StreamChunk = JSON.parse(data);
+                  
+                  if (parsed.type === 'content' && parsed.content) {
+                    accumulatedContent += parsed.content;
+                    
+                    // Update the message with accumulated content
+                    setMessages(prev => prev.map(msg => 
+                      msg.id === assistantMessageId 
+                        ? { ...msg, content: accumulatedContent }
+                        : msg
+                    ));
+                  } else if (parsed.type === 'stats') {
+                    messageStats = {
+                      inputTokens: parsed.inputTokens || 0,
+                      outputTokens: parsed.outputTokens || 0,
+                      totalTokens: parsed.totalTokens || 0,
+                      duration: parsed.duration || '0',
+                      tokensPerSecond: parsed.tokensPerSecond || '0',
+                      finishReason: parsed.finishReason,
+                    };
+                    
+                    // Update the message with final stats
+                    setMessages(prev => prev.map(msg => 
+                      msg.id === assistantMessageId 
+                        ? { ...msg, stats: messageStats }
+                        : msg
+                    ));
+                  } else if (parsed.type === 'error') {
+                    throw new Error(parsed.error || 'Streaming error');
+                  }
+                } catch (parseError) {
+                  console.error('Error parsing streaming data:', parseError);
+                }
+              }
+            }
+          }
+        } finally {
+          reader.releaseLock();
+        }
+      }
     } catch (error) {
       console.error('Error sending message:', error);
       const errorMessage: Message = {
-        id: (Date.now() + 1).toString(),
+        id: (Date.now() + 2).toString(),
         content: 'Sorry, I encountered an error while processing your request. Please try again.',
         role: 'assistant',
         timestamp: new Date(),
       };
-      setMessages(prev => [...prev, errorMessage]);
+      setMessages(prev => [...prev.slice(0, -1), errorMessage]);
     } finally {
       setIsLoading(false);
     }
