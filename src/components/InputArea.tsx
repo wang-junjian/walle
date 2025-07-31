@@ -67,7 +67,7 @@ export function InputArea({
         </div>
       )}
       
-      <div className="flex items-end space-x-2">
+      <div className="flex items-center space-x-2">
         <div className="flex-1">
           <textarea
             value={input}
@@ -75,8 +75,8 @@ export function InputArea({
             onKeyPress={onKeyPress}
             placeholder={t('chat.typeMessage')}
             className="w-full resize-none rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-            rows={1}
-            style={{ minHeight: '40px', maxHeight: '120px' }}
+            rows={2}
+            style={{ minHeight: '80px', maxHeight: '240px' }}
             disabled={isLoading}
           />
         </div>
