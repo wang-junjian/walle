@@ -24,6 +24,20 @@ export function ChatInterface({ selectedModel, onModelChange }: ChatInterfacePro
   const [isLoading, setIsLoading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
+  const handleNewChat = () => {
+    setMessages([
+      {
+        id: '1',
+        content: 'Hello! I\'m Walle, your AI assistant. I can help you with text, voice, and image interactions. How can I assist you today?',
+        role: 'assistant',
+        timestamp: new Date(),
+      },
+    ]);
+    setInput('');
+    setSelectedFile(null);
+    setIsLoading(false);
+  };
+
   const handleSendMessage = async () => {
     if (!input.trim() && !selectedFile) return;
 
@@ -167,12 +181,28 @@ export function ChatInterface({ selectedModel, onModelChange }: ChatInterfacePro
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl overflow-hidden h-[600px] flex flex-col">
-      {/* Chat Header with Model Selector */}
+      {/* Chat Header with New Chat Button */}
       <div className="border-b border-gray-200 dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-750">
         <div className="flex justify-between items-center">
-          <h2 className="text-lg font-semibold text-gray-800 dark:text-white">
-            对话
-          </h2>
+          <button
+            onClick={handleNewChat}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors duration-200 font-medium"
+          >
+            <svg 
+              className="w-4 h-4" 
+              fill="none" 
+              stroke="currentColor" 
+              viewBox="0 0 24 24"
+            >
+              <path 
+                strokeLinecap="round" 
+                strokeLinejoin="round" 
+                strokeWidth={2} 
+                d="M12 4v16m8-8H4" 
+              />
+            </svg>
+            新对话
+          </button>
           {onModelChange && (
             <ModelSelector onModelChange={onModelChange} />
           )}
