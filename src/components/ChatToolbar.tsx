@@ -1,10 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { 
   Volume2, 
   VolumeX, 
+  Square,
   Copy, 
   Share2, 
   RotateCcw, 
@@ -13,7 +14,7 @@ import {
   ExternalLink
 } from 'lucide-react';
 import { Message } from '@/types/chat';
-import { synthesizeSpeech, playAudio } from '@/utils/voice';
+import { synthesizeSpeech, playAudio, stopAudio, isAudioPlaying } from '@/utils/voice';
 
 interface ChatToolbarProps {
   message: Message;
@@ -24,8 +25,23 @@ interface ChatToolbarProps {
 export function ChatToolbar({ message, selectedVoice, onRegenerate }: ChatToolbarProps) {
   const { t } = useTranslation();
   const [isSynthesizing, setIsSynthesizing] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
   const [showTokenStats, setShowTokenStats] = useState(false);
+
+  // 检查音频播放状态
+  useEffect(() => {
+    const checkPlayingStatus = () => {
+      setIsPlaying(isAudioPlaying());
+    };
+
+    // 定期检查播放状态
+    const interval = setInterval(checkPlayingStatus, 100);
+    
+    return () => {
+      clearInterval(interval);
+    };
+  }, []);
 
   // 语音朗读功能
   const handlePlaySpeech = async () => {
@@ -34,9 +50,16 @@ export function ChatToolbar({ message, selectedVoice, onRegenerate }: ChatToolba
     try {
       setIsSynthesizing(true);
       const audioBlob = await synthesizeSpeech(message.content, selectedVoice);
+      setIsSynthesizing(false);
+      setIsPlaying(true);
+      
+      // 播放音频，无论是正常结束还是被停止，都会resolve
       await playAudio(audioBlob);
+      setIsPlaying(false);
     } catch (error) {
       console.error('Text-to-speech error:', error);
+      setIsPlaying(false);
+      setIsSynthesizing(false);
       
       let errorMessage = t('voice.synthesisFailed');
       if (error instanceof Error) {
@@ -54,9 +77,13 @@ export function ChatToolbar({ message, selectedVoice, onRegenerate }: ChatToolba
       }
       
       alert(errorMessage);
-    } finally {
-      setIsSynthesizing(false);
     }
+  };
+
+  // 停止语音播放
+  const handleStopSpeech = () => {
+    stopAudio();
+    setIsPlaying(false);
   };
 
   // 复制功能
@@ -134,19 +161,29 @@ export function ChatToolbar({ message, selectedVoice, onRegenerate }: ChatToolba
 
   return (
     <div className="flex items-center gap-1 mt-2 pt-2 border-t border-gray-200 dark:border-gray-600">
-      {/* 语音朗读 */}
-      <button
-        onClick={handlePlaySpeech}
-        disabled={isSynthesizing || !message.content}
-        className="p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        title={t('toolbar.playAudio')}
-      >
-        {isSynthesizing ? (
-          <VolumeX className="h-4 w-4 opacity-50" />
-        ) : (
-          <Volume2 className="h-4 w-4 opacity-75 hover:opacity-100" />
-        )}
-      </button>
+      {/* 语音朗读/停止 */}
+      {isPlaying ? (
+        <button
+          onClick={handleStopSpeech}
+          className="p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+          title={t('toolbar.stopAudio')}
+        >
+          <Square className="h-4 w-4 text-red-500 hover:text-red-600" />
+        </button>
+      ) : (
+        <button
+          onClick={handlePlaySpeech}
+          disabled={isSynthesizing || !message.content}
+          className="p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          title={t('toolbar.playAudio')}
+        >
+          {isSynthesizing ? (
+            <VolumeX className="h-4 w-4 opacity-50" />
+          ) : (
+            <Volume2 className="h-4 w-4 opacity-75 hover:opacity-100" />
+          )}
+        </button>
+      )}
 
       {/* 复制 */}
       <button

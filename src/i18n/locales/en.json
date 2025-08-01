@@ -52,6 +52,7 @@
   },
   "toolbar": {
     "playAudio": "Play Audio",
+    "stopAudio": "Stop Audio",
     "copy": "Copy",
     "share": "Share",
     "regenerate": "Regenerate",
