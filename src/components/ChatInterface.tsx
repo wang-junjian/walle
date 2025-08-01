@@ -54,6 +54,141 @@ export function ChatInterface({ selectedModel, onModelChange }: ChatInterfacePro
     setIsLoading(false);
   };
 
+  const handleRegenerate = async (messageId: string) => {
+    // 找到要重新生成的消息
+    const messageIndex = messages.findIndex(msg => msg.id === messageId);
+    if (messageIndex === -1 || messageIndex === 0) return;
+
+    // 获取该消息之前的对话历史
+    const historyUpToMessage = messages.slice(0, messageIndex);
+    const lastUserMessage = historyUpToMessage[historyUpToMessage.length - 1];
+    
+    if (!lastUserMessage || lastUserMessage.role !== 'user') return;
+
+    // 移除当前要重新生成的消息及其之后的所有消息
+    setMessages(historyUpToMessage);
+    setIsLoading(true);
+
+    // 创建新的助手消息用于流式响应
+    const newAssistantMessageId = Date.now().toString();
+    const newAssistantMessage: Message = {
+      id: newAssistantMessageId,
+      content: '',
+      role: 'assistant',
+      timestamp: new Date(),
+    };
+
+    setMessages(prev => [...prev, newAssistantMessage]);
+
+    try {
+      // 准备请求数据
+      const formData = new FormData();
+      formData.append('message', lastUserMessage.content);
+      
+      // 如果用户消息有图片附件，也要包含
+      if (lastUserMessage.attachments) {
+        const imageAttachment = lastUserMessage.attachments.find(att => att.type === 'image');
+        if (imageAttachment?.file) {
+          formData.append('image', imageAttachment.file);
+        }
+      }
+      
+      // 添加选中的模型
+      if (selectedModel) {
+        formData.append('model', selectedModel);
+      }
+
+      // 添加对话历史（不包括当前用户消息）
+      const conversationHistory = historyUpToMessage.slice(0, -1).map(msg => ({
+        role: msg.role,
+        content: msg.content,
+      }));
+      formData.append('history', JSON.stringify(conversationHistory));
+
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to get response');
+      }
+
+      // 处理流式响应（与原有逻辑相同）
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+      let accumulatedContent = '';
+      let messageStats: MessageStats | undefined;
+
+      if (reader) {
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            const chunk = decoder.decode(value, { stream: true });
+            const lines = chunk.split('\n');
+
+            for (const line of lines) {
+              if (line.startsWith('data: ')) {
+                const data = line.slice(6);
+                if (data === '[DONE]') {
+                  continue;
+                }
+
+                try {
+                  const parsed: StreamChunk = JSON.parse(data);
+                  
+                  if (parsed.type === 'content' && parsed.content) {
+                    accumulatedContent += parsed.content;
+                    
+                    setMessages(prev => prev.map(msg => 
+                      msg.id === newAssistantMessageId 
+                        ? { ...msg, content: accumulatedContent }
+                        : msg
+                    ));
+                  } else if (parsed.type === 'stats') {
+                    messageStats = {
+                      inputTokens: parsed.inputTokens || 0,
+                      outputTokens: parsed.outputTokens || 0,
+                      totalTokens: parsed.totalTokens || 0,
+                      duration: parsed.duration || '0',
+                      tokensPerSecond: parsed.tokensPerSecond || '0',
+                      finishReason: parsed.finishReason,
+                    };
+                    
+                    setMessages(prev => prev.map(msg => 
+                      msg.id === newAssistantMessageId 
+                        ? { ...msg, stats: messageStats }
+                        : msg
+                    ));
+                  } else if (parsed.type === 'error') {
+                    throw new Error(parsed.error || 'Streaming error');
+                  }
+                } catch (parseError) {
+                  console.error('Error parsing streaming data:', parseError);
+                }
+              }
+            }
+          }
+        } finally {
+          reader.releaseLock();
+        }
+      }
+    } catch (error) {
+      console.error('Error regenerating message:', error);
+      const errorMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        content: t('chat.error'),
+        role: 'assistant',
+        timestamp: new Date(),
+      };
+      setMessages(prev => [...prev.slice(0, -1), errorMessage]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleSendMessage = async () => {
     if (!input.trim() && !selectedFile) return;
 
@@ -237,7 +372,12 @@ export function ChatInterface({ selectedModel, onModelChange }: ChatInterfacePro
       </div>
 
       <div className="flex-1 overflow-hidden">
-        <MessageList messages={messages} isLoading={isLoading} selectedVoice={selectedVoice} />
+        <MessageList 
+          messages={messages} 
+          isLoading={isLoading} 
+          selectedVoice={selectedVoice}
+          onRegenerate={handleRegenerate}
+        />
       </div>
       
       <div className="border-t border-gray-200 dark:border-gray-700 p-4 flex-shrink-0">

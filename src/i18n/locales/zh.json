@@ -48,5 +48,14 @@
     "rateLimitError": "API调用频率过高，请稍后重试",
     "serverError": "服务器内部错误，请稍后重试",
     "audioPlayError": "音频播放失败，请检查浏览器音频权限"
+  },
+  "toolbar": {
+    "playAudio": "语音朗读",
+    "copy": "复制",
+    "share": "分享",
+    "regenerate": "重新生成",
+    "tokenStats": "令牌统计",
+    "copyFailed": "复制失败",
+    "shareTitle": "Walle AI 对话内容"
   }
 }

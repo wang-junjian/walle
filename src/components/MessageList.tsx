@@ -10,9 +10,10 @@ interface MessageListProps {
   messages: Message[];
   isLoading: boolean;
   selectedVoice?: string;
+  onRegenerate?: (messageId: string) => void;
 }
 
-export function MessageList({ messages, isLoading, selectedVoice }: MessageListProps) {
+export function MessageList({ messages, isLoading, selectedVoice, onRegenerate }: MessageListProps) {
   const { t } = useTranslation();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -27,7 +28,12 @@ export function MessageList({ messages, isLoading, selectedVoice }: MessageListP
   return (
     <div className="h-full overflow-y-auto p-4 space-y-4">
       {messages.map((message) => (
-        <MessageBubble key={message.id} message={message} selectedVoice={selectedVoice} />
+        <MessageBubble 
+          key={message.id} 
+          message={message} 
+          selectedVoice={selectedVoice}
+          onRegenerate={message.role === 'assistant' ? () => onRegenerate?.(message.id) : undefined}
+        />
       ))}
       
       {isLoading && (

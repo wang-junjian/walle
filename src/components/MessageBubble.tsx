@@ -3,21 +3,20 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Message } from '@/types/chat';
-import { User, Bot, Image as ImageIcon, BarChart3, ChevronDown, ChevronUp, Volume2, VolumeX } from 'lucide-react';
+import { User, Bot } from 'lucide-react';
 import { formatTime } from '@/utils/time';
-import { synthesizeSpeech, playAudio } from '@/utils/voice';
+import { ChatToolbar } from './ChatToolbar';
 
 interface MessageBubbleProps {
   message: Message;
   selectedVoice?: string;
+  onRegenerate?: () => void;
 }
 
-export function MessageBubble({ message, selectedVoice }: MessageBubbleProps) {
+export function MessageBubble({ message, selectedVoice, onRegenerate }: MessageBubbleProps) {
   const { t } = useTranslation();
   const isUser = message.role === 'user';
-  const [showStats, setShowStats] = useState(false);
   const [imageUrls, setImageUrls] = useState<string[]>([]);
-  const [isSynthesizing, setIsSynthesizing] = useState(false);
 
   // Create object URLs for image attachments
   useEffect(() => {
@@ -59,39 +58,6 @@ export function MessageBubble({ message, selectedVoice }: MessageBubbleProps) {
       });
     };
   }, [message.attachments, message.id]); // Add message.id to dependencies
-
-    const handlePlaySpeech = async () => {
-    if (!message.content || isSynthesizing) return;
-    
-    try {
-      setIsSynthesizing(true);
-      const audioBlob = await synthesizeSpeech(message.content, selectedVoice);
-      await playAudio(audioBlob);
-    } catch (error) {
-      console.error('Text-to-speech error:', error);
-      
-      // 提供更具体的错误信息
-      let errorMessage = t('voice.synthesisFailed');
-      if (error instanceof Error) {
-        // 如果是网络错误或API错误，提供更具体的信息
-        if (error.message.includes('fetch')) {
-          errorMessage = t('voice.networkError');
-        } else if (error.message.includes('401')) {
-          errorMessage = t('voice.apiKeyError');
-        } else if (error.message.includes('429')) {
-          errorMessage = t('voice.rateLimitError');
-        } else if (error.message.includes('500')) {
-          errorMessage = t('voice.serverError');
-        } else if (error.message.includes('音频播放失败')) {
-          errorMessage = t('voice.audioPlayError');
-        }
-      }
-      
-      alert(errorMessage);
-    } finally {
-      setIsSynthesizing(false);
-    }
-  };
 
   return (
     <div className={`flex items-start space-x-3 ${isUser ? 'justify-end' : 'justify-start'}`}>
@@ -153,73 +119,16 @@ export function MessageBubble({ message, selectedVoice }: MessageBubbleProps) {
           {message.content && (
             <div className="space-y-2">
               <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-              
-              {/* Voice playback button for assistant messages */}
-              {!isUser && (
-                <div className="flex justify-end">
-                  <button
-                    onClick={handlePlaySpeech}
-                    disabled={isSynthesizing}
-                    className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-                    title={t('voice.playSpeech')}
-                  >
-                    {isSynthesizing ? (
-                      <VolumeX className="h-4 w-4 opacity-50" />
-                    ) : (
-                      <Volume2 className="h-4 w-4 opacity-75 hover:opacity-100" />
-                    )}
-                  </button>
-                </div>
-              )}
             </div>
           )}
           
-          {/* Display statistics for assistant messages */}
-          {!isUser && message.stats && (
-            <div className="mt-3 pt-2 border-t border-gray-200 dark:border-gray-600">
-              <button
-                onClick={() => setShowStats(!showStats)}
-                className="flex items-center justify-between w-full text-xs opacity-75 hover:opacity-100 transition-opacity"
-              >
-                <div className="flex items-center space-x-1">
-                  <BarChart3 className="h-3 w-3" />
-                  <span className="font-medium">{t('stats.totalTokens')}</span>
-                  <span className="text-gray-500">
-                    ({message.stats.totalTokens} tokens, {message.stats.tokensPerSecond} t/s)
-                  </span>
-                </div>
-                {showStats ? (
-                  <ChevronUp className="h-3 w-3" />
-                ) : (
-                  <ChevronDown className="h-3 w-3" />
-                )}
-              </button>
-              
-              {showStats && (
-                <div className="mt-2 space-y-1 text-xs opacity-75">
-                  <div className="flex justify-between">
-                    <span>{t('stats.inputTokens')}:</span>
-                    <span>{message.stats.inputTokens} tokens</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>{t('stats.outputTokens')}:</span>
-                    <span>{message.stats.outputTokens} tokens</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>{t('stats.totalTokens')}:</span>
-                    <span>{message.stats.totalTokens} tokens</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>{t('stats.duration')}:</span>
-                    <span>{message.stats.duration}s</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>{t('stats.tokensPerSecond')}:</span>
-                    <span>{message.stats.tokensPerSecond} tokens/s</span>
-                  </div>
-                </div>
-              )}
-            </div>
+          {/* 对于助手消息，添加工具栏（但排除欢迎消息） */}
+          {!isUser && message.id !== '1' && (
+            <ChatToolbar 
+              message={message} 
+              selectedVoice={selectedVoice}
+              onRegenerate={onRegenerate}
+            />
           )}
         </div>
         

@@ -48,5 +48,14 @@
     "rateLimitError": "API rate limit exceeded. Please try again later.",
     "serverError": "Server error. Please try again later.",
     "audioPlayError": "Audio playback failed. Please check browser audio permissions."
+  },
+  "toolbar": {
+    "playAudio": "Play Audio",
+    "copy": "Copy",
+    "share": "Share",
+    "regenerate": "Regenerate",
+    "tokenStats": "Token Statistics",
+    "copyFailed": "Copy failed",
+    "shareTitle": "Walle AI Conversation"
   }
 }
