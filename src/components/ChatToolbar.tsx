@@ -10,8 +10,7 @@ import {
   Share2, 
   RotateCcw, 
   BarChart3,
-  CheckCircle,
-  ExternalLink
+  CheckCircle
 } from 'lucide-react';
 import { Message } from '@/types/chat';
 import { synthesizeSpeech, playAudio, stopAudio, isAudioPlaying } from '@/utils/voice';

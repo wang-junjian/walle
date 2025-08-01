@@ -1,9 +1,32 @@
 // 声明全局的 SpeechRecognition 接口
+interface SpeechRecognition extends EventTarget {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  maxAlternatives: number;
+  start(): void;
+  stop(): void;
+  onstart: ((this: SpeechRecognition, ev: Event) => void) | null;
+  onresult: ((this: SpeechRecognition, ev: SpeechRecognitionEvent) => void) | null;
+  onerror: ((this: SpeechRecognition, ev: SpeechRecognitionErrorEvent) => void) | null;
+  onend: ((this: SpeechRecognition, ev: Event) => void) | null;
+}
+
+declare const SpeechRecognition: {
+  prototype: SpeechRecognition;
+  new(): SpeechRecognition;
+};
+
 declare global {
   interface Window {
-    SpeechRecognition: any;
-    webkitSpeechRecognition: any;
+    SpeechRecognition: typeof SpeechRecognition;
+    webkitSpeechRecognition: typeof SpeechRecognition;
   }
+}
+
+interface SpeechRecognitionErrorEvent extends Event {
+  error: string;
+  message?: string;
 }
 
 interface SpeechRecognitionEvent extends Event {
@@ -33,7 +56,7 @@ export class VoiceRecorder {
   private mediaRecorder: MediaRecorder | null = null;
   private audioChunks: Blob[] = [];
   private stream: MediaStream | null = null;
-  private speechRecognition: any = null;
+  private speechRecognition: SpeechRecognition | null = null;
   private onInterimTranscript?: (text: string) => void;
   private onFinalTranscript?: (text: string) => void;
   private currentLanguage: string = 'zh-CN';
@@ -106,7 +129,7 @@ export class VoiceRecorder {
       }
     };
 
-    this.speechRecognition.onerror = (event: any) => {
+    this.speechRecognition.onerror = (event: SpeechRecognitionErrorEvent) => {
       console.error('Speech recognition error:', event.error);
       if (event.error === 'not-allowed') {
         throw new Error('麦克风权限被拒绝，请允许麦克风访问权限');

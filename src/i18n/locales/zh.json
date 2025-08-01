@@ -13,7 +13,8 @@
     "aiDisclaimer": "内容由AI生成，请仔细甄别",
     "modelSelector": "选择模型",
     "languageSelector": "语言",
-    "imageAttached": "已附加图片"
+    "imageAttached": "已附加图片",
+    "thinking": "思考"
   },
   "stats": {
     "inputTokens": "输入令牌",

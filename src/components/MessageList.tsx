@@ -11,9 +11,10 @@ interface MessageListProps {
   isLoading: boolean;
   selectedVoice?: string;
   onRegenerate?: (messageId: string) => void;
+  onToggleReasoning?: (messageId: string) => void;
 }
 
-export function MessageList({ messages, isLoading, selectedVoice, onRegenerate }: MessageListProps) {
+export function MessageList({ messages, isLoading, selectedVoice, onRegenerate, onToggleReasoning }: MessageListProps) {
   const { t } = useTranslation();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -33,6 +34,7 @@ export function MessageList({ messages, isLoading, selectedVoice, onRegenerate }
           message={message} 
           selectedVoice={selectedVoice}
           onRegenerate={message.role === 'assistant' ? () => onRegenerate?.(message.id) : undefined}
+          onToggleReasoning={onToggleReasoning}
         />
       ))}
       

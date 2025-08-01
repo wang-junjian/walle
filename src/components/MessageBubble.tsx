@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Message } from '@/types/chat';
-import { User, Bot } from 'lucide-react';
+import { User, Bot, Brain, ChevronDown, ChevronUp } from 'lucide-react';
 import { formatTime } from '@/utils/time';
 import { ChatToolbar } from './ChatToolbar';
 
@@ -13,12 +13,16 @@ interface MessageBubbleProps {
   message: Message;
   selectedVoice?: string;
   onRegenerate?: () => void;
+  onToggleReasoning?: (messageId: string) => void;
 }
 
-export function MessageBubble({ message, selectedVoice, onRegenerate }: MessageBubbleProps) {
+export function MessageBubble({ message, selectedVoice, onRegenerate, onToggleReasoning }: MessageBubbleProps) {
   const { t } = useTranslation();
   const isUser = message.role === 'user';
   const [imageUrls, setImageUrls] = useState<string[]>([]);
+  
+  // 使用消息中的展开状态，而不是本地状态
+  const showReasoning = message.reasoning_expanded ?? false;
 
   // Create object URLs for image attachments
   useEffect(() => {
@@ -117,6 +121,87 @@ export function MessageBubble({ message, selectedVoice, onRegenerate }: MessageB
               </div>
             </div>
           ))}
+          
+          {/* 显示思维链（仅对助手消息） */}
+          {!isUser && message.reasoning_content && (
+            <div className="mb-4 border-l-4 border-blue-300 bg-blue-50 dark:bg-blue-900/20 rounded-r-lg">
+              <button
+                onClick={() => onToggleReasoning?.(message.id)}
+                className="flex items-center justify-between w-full px-4 py-3 text-left hover:bg-blue-100 dark:hover:bg-blue-800/30 transition-colors"
+              >
+                <div className="flex items-center space-x-2">
+                  <Brain className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                  <span className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                    {t('chat.thinking', '思考')}
+                  </span>
+                </div>
+                {showReasoning ? (
+                  <ChevronUp className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                ) : (
+                  <ChevronDown className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                )}
+              </button>
+              
+              {showReasoning && (
+                <div className="px-4 pb-4">
+                  <div className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed space-y-2">
+                    <ReactMarkdown 
+                      remarkPlugins={[remarkGfm]}
+                      components={{
+                        p: ({ children }) => (
+                          <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed mb-2">
+                            {children}
+                          </p>
+                        ),
+                        h1: ({ children }) => (
+                          <h1 className="text-sm font-semibold text-gray-600 dark:text-gray-400 mb-2">
+                            {children}
+                          </h1>
+                        ),
+                        h2: ({ children }) => (
+                          <h2 className="text-sm font-semibold text-gray-600 dark:text-gray-400 mb-2">
+                            {children}
+                          </h2>
+                        ),
+                        h3: ({ children }) => (
+                          <h3 className="text-sm font-semibold text-gray-600 dark:text-gray-400 mb-2">
+                            {children}
+                          </h3>
+                        ),
+                        strong: ({ children }) => (
+                          <strong className="text-xs font-semibold text-gray-600 dark:text-gray-400">
+                            {children}
+                          </strong>
+                        ),
+                        code: ({ children }) => (
+                          <code className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-1 py-0.5 rounded">
+                            {children}
+                          </code>
+                        ),
+                        pre: ({ children }) => (
+                          <pre className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 p-2 rounded overflow-x-auto">
+                            {children}
+                          </pre>
+                        ),
+                        li: ({ children }) => (
+                          <li className="text-xs text-gray-500 dark:text-gray-400">
+                            {children}
+                          </li>
+                        ),
+                        blockquote: ({ children }) => (
+                          <blockquote className="text-xs text-gray-500 dark:text-gray-400 border-l-2 border-gray-300 dark:border-gray-600 pl-3 my-2">
+                            {children}
+                          </blockquote>
+                        ),
+                      }}
+                    >
+                      {message.reasoning_content}
+                    </ReactMarkdown>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
           
           {message.content && (
             <div className="space-y-2">

@@ -94,13 +94,34 @@ export async function POST(request: NextRequest) {
     }
 
     // Call OpenAI API with streaming
-    const stream = await openai.chat.completions.create({
+    const requestOptions: Record<string, unknown> = {
       model: modelToUse, // Use the selected or configured model
       messages: baseMessages,
       max_tokens: 1000,
       temperature: 0.7,
       stream: true,
-    });
+    };
+
+    // 检查是否是推理模型，根据 SiliconFlow 官方文档
+    // 只包含实际支持的推理模型
+    const reasoningModels = [
+      'Qwen/QwQ-32B', 
+      'Qwen/Qwen3-235B-A22B-Thinking-2507',
+      'THUDM/GLM-4.1V-9B-Thinking',
+    ];
+    const isReasoningModel = reasoningModels.includes(modelToUse);
+    
+    if (isReasoningModel) {
+      // enable_thinking 仅适用于 Qwen3 和 Hunyuan 模型
+      if (modelToUse.includes('Qwen3') || modelToUse.includes('Hunyuan')) {
+        requestOptions.enable_thinking = true;
+      }
+      // thinking_budget 适用于所有推理模型
+      requestOptions.thinking_budget = 4096;
+      console.log(`启用推理模式，模型: ${modelToUse}`);
+    }
+
+    const stream = await openai.chat.completions.create(requestOptions as unknown as OpenAI.ChatCompletionCreateParams);
 
     // Track timing and tokens for statistics
     const startTime = Date.now();
@@ -112,45 +133,61 @@ export async function POST(request: NextRequest) {
     const readableStream = new ReadableStream({
       async start(controller) {
         try {
-          for await (const chunk of stream) {
-            const delta = chunk.choices[0]?.delta;
-            
-            // Handle usage information if available
-            if (chunk.usage) {
-              inputTokens = chunk.usage.prompt_tokens || 0;
-              outputTokens = chunk.usage.completion_tokens || 0;
-            }
-            
-            if (delta?.content) {
-              // Send the content chunk
-              const data = JSON.stringify({
-                type: 'content',
-                content: delta.content,
-              });
-              controller.enqueue(encoder.encode(`data: ${data}\n\n`));
-            }
-            
-            // Check if this is the last chunk
-            if (chunk.choices[0]?.finish_reason) {
-              const endTime = Date.now();
-              const duration = (endTime - startTime) / 1000; // Convert to seconds
-              const tokensPerSecond = outputTokens > 0 ? (outputTokens / duration).toFixed(2) : '0';
+          // 确保是流式响应
+          if (Symbol.asyncIterator in stream) {
+            for await (const chunk of stream) {
+              const delta = chunk.choices[0]?.delta;
               
-              // Send final statistics
-              const statsData = JSON.stringify({
-                type: 'stats',
-                inputTokens,
-                outputTokens,
-                totalTokens: inputTokens + outputTokens,
-                duration: duration.toFixed(2),
-                tokensPerSecond,
-                finishReason: chunk.choices[0].finish_reason
-              });
-              controller.enqueue(encoder.encode(`data: ${statsData}\n\n`));
+              // Handle usage information if available
+              if (chunk.usage) {
+                inputTokens = chunk.usage.prompt_tokens || 0;
+                outputTokens = chunk.usage.completion_tokens || 0;
+              }
               
-              // Send end signal
-              controller.enqueue(encoder.encode('data: [DONE]\n\n'));
-              controller.close();
+              // Handle reasoning content for thinking models
+              // 在流式响应中，reasoning_content 应该在 delta 中
+              const reasoningContent = (delta as Record<string, unknown>)?.reasoning_content as string;
+              
+              if (reasoningContent) {
+                const reasoningData = JSON.stringify({
+                  type: 'reasoning',
+                  reasoning_content: reasoningContent,
+                });
+                controller.enqueue(encoder.encode(`data: ${reasoningData}\n\n`));
+                // console.log('发送推理内容:', reasoningContent.substring(0, 100) + '...');
+              }
+              
+              if (delta?.content) {
+                // Send the content chunk
+                const data = JSON.stringify({
+                  type: 'content',
+                  content: delta.content,
+                });
+                controller.enqueue(encoder.encode(`data: ${data}\n\n`));
+              }
+              
+              // Check if this is the last chunk
+              if (chunk.choices[0]?.finish_reason) {
+                const endTime = Date.now();
+                const duration = (endTime - startTime) / 1000; // Convert to seconds
+                const tokensPerSecond = outputTokens > 0 ? (outputTokens / duration).toFixed(2) : '0';
+                
+                // Send final statistics
+                const statsData = JSON.stringify({
+                  type: 'stats',
+                  inputTokens,
+                  outputTokens,
+                  totalTokens: inputTokens + outputTokens,
+                  duration: duration.toFixed(2),
+                  tokensPerSecond,
+                  finishReason: chunk.choices[0].finish_reason
+                });
+                controller.enqueue(encoder.encode(`data: ${statsData}\n\n`));
+                
+                // Send end signal
+                controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+                controller.close();
+              }
             }
           }
         } catch (error) {

@@ -58,6 +58,14 @@ export function ChatInterface({ selectedModel, onModelChange }: ChatInterfacePro
     setIsRecording(false);
   };
 
+  const handleToggleReasoning = (messageId: string) => {
+    setMessages(prev => prev.map(msg => 
+      msg.id === messageId 
+        ? { ...msg, reasoning_expanded: !msg.reasoning_expanded }
+        : msg
+    ));
+  };
+
   const handleRegenerate = async (messageId: string) => {
     // 找到要重新生成的消息
     const messageIndex = messages.findIndex(msg => msg.id === messageId);
@@ -122,6 +130,7 @@ export function ChatInterface({ selectedModel, onModelChange }: ChatInterfacePro
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
       let accumulatedContent = '';
+      let accumulatedReasoning = '';
       let messageStats: MessageStats | undefined;
 
       if (reader) {
@@ -149,6 +158,20 @@ export function ChatInterface({ selectedModel, onModelChange }: ChatInterfacePro
                     setMessages(prev => prev.map(msg => 
                       msg.id === newAssistantMessageId 
                         ? { ...msg, content: accumulatedContent }
+                        : msg
+                    ));
+                  } else if (parsed.type === 'reasoning' && parsed.reasoning_content) {
+                    accumulatedReasoning += parsed.reasoning_content;
+                    console.log('重新生成-收到推理内容:', parsed.reasoning_content.substring(0, 100) + '...');
+                    
+                    // 当开始接收思维链内容时，将其展开，但不在收到回复内容时自动折叠
+                    setMessages(prev => prev.map(msg => 
+                      msg.id === newAssistantMessageId 
+                        ? { 
+                            ...msg, 
+                            reasoning_content: accumulatedReasoning,
+                            reasoning_expanded: true // 自动展开思维链
+                          }
                         : msg
                     ));
                   } else if (parsed.type === 'stats') {
@@ -261,6 +284,7 @@ export function ChatInterface({ selectedModel, onModelChange }: ChatInterfacePro
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
       let accumulatedContent = '';
+      let accumulatedReasoning = '';
       let messageStats: MessageStats | undefined;
 
       if (reader) {
@@ -285,10 +309,23 @@ export function ChatInterface({ selectedModel, onModelChange }: ChatInterfacePro
                   if (parsed.type === 'content' && parsed.content) {
                     accumulatedContent += parsed.content;
                     
-                    // Update the message with accumulated content
                     setMessages(prev => prev.map(msg => 
                       msg.id === assistantMessageId 
                         ? { ...msg, content: accumulatedContent }
+                        : msg
+                    ));
+                  } else if (parsed.type === 'reasoning' && parsed.reasoning_content) {
+                    accumulatedReasoning += parsed.reasoning_content;
+                    console.log('收到推理内容:', parsed.reasoning_content.substring(0, 100) + '...');
+                    
+                    // 当开始接收思维链内容时，将其展开，但不在收到回复内容时自动折叠
+                    setMessages(prev => prev.map(msg => 
+                      msg.id === assistantMessageId 
+                        ? { 
+                            ...msg, 
+                            reasoning_content: accumulatedReasoning,
+                            reasoning_expanded: true // 自动展开思维链
+                          }
                         : msg
                     ));
                   } else if (parsed.type === 'stats') {
@@ -387,6 +424,7 @@ export function ChatInterface({ selectedModel, onModelChange }: ChatInterfacePro
           isLoading={isLoading} 
           selectedVoice={selectedVoice}
           onRegenerate={handleRegenerate}
+          onToggleReasoning={handleToggleReasoning}
         />
       </div>
       

@@ -1,11 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { useTranslation } from 'react-i18next';
 import { ChatInterface } from '@/components/ChatInterface';
 
 export default function Home() {
-  const { t } = useTranslation();
   const [selectedModel, setSelectedModel] = useState<string>('');
 
   const handleModelChange = (model: string) => {

@@ -5,6 +5,8 @@ export interface Message {
   timestamp: Date;
   attachments?: Attachment[];
   stats?: MessageStats;
+  reasoning_content?: string; // 推理思维链内容
+  reasoning_expanded?: boolean; // 控制思维链展开状态
 }
 
 export interface Attachment {
@@ -32,8 +34,9 @@ export interface MessageStats {
 }
 
 export interface StreamChunk {
-  type: 'content' | 'stats' | 'error';
+  type: 'content' | 'reasoning' | 'stats' | 'error';
   content?: string;
+  reasoning_content?: string; // 推理思维链内容
   inputTokens?: number;
   outputTokens?: number;
   totalTokens?: number;
