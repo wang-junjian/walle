@@ -7,6 +7,8 @@ import { MessageList } from './MessageList';
 import { InputArea } from './InputArea';
 import { ModelSelector } from './ModelSelector';
 import { LanguageSelector } from './LanguageSelector';
+import VoiceSelector from './VoiceSelector';
+import { voiceConfig } from '@/config/voice';
 
 interface ChatInterfaceProps {
   selectedModel?: string;
@@ -27,6 +29,7 @@ export function ChatInterface({ selectedModel, onModelChange }: ChatInterfacePro
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedVoice, setSelectedVoice] = useState(voiceConfig.defaultVoice);
 
   // Update welcome message when language changes
   useEffect(() => {
@@ -222,6 +225,10 @@ export function ChatInterface({ selectedModel, onModelChange }: ChatInterfacePro
           </button>
           <div className="flex items-center gap-2">
             <LanguageSelector />
+            <VoiceSelector 
+              value={selectedVoice} 
+              onChange={setSelectedVoice} 
+            />
             {onModelChange && (
               <ModelSelector onModelChange={onModelChange} />
             )}
@@ -230,7 +237,7 @@ export function ChatInterface({ selectedModel, onModelChange }: ChatInterfacePro
       </div>
 
       <div className="flex-1 overflow-hidden">
-        <MessageList messages={messages} isLoading={isLoading} />
+        <MessageList messages={messages} isLoading={isLoading} selectedVoice={selectedVoice} />
       </div>
       
       <div className="border-t border-gray-200 dark:border-gray-700 p-4 flex-shrink-0">
@@ -242,6 +249,7 @@ export function ChatInterface({ selectedModel, onModelChange }: ChatInterfacePro
           onSendMessage={handleSendMessage}
           onKeyPress={handleKeyPress}
           isLoading={isLoading}
+          currentLanguage={i18n.language}
         />
       </div>
     </div>

@@ -34,6 +34,19 @@
   },
   "voice": {
     "startRecording": "Start voice recording",
-    "stopRecording": "Stop recording"
+    "stopRecording": "Stop recording",
+    "playSpeech": "Play speech",
+    "transcribing": "Transcribing audio...",
+    "synthesizing": "Synthesizing speech...",
+    "permissionDenied": "Cannot access microphone. Please check permissions.",
+    "transcriptionFailed": "Speech-to-text failed. Please try again.",
+    "synthesisFailed": "Text-to-speech failed. Please try again.",
+    "selectVoice": "Select voice",
+    "voiceSelector": "Voice Selector",
+    "networkError": "Network connection failed. Please check your connection.",
+    "apiKeyError": "Invalid API key. Please check configuration.",
+    "rateLimitError": "API rate limit exceeded. Please try again later.",
+    "serverError": "Server error. Please try again later.",
+    "audioPlayError": "Audio playback failed. Please check browser audio permissions."
   }
 }

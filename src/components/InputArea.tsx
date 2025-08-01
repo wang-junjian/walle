@@ -3,6 +3,7 @@
 import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Send, Mic, Image as ImageIcon, X, Loader2 } from 'lucide-react';
+import { VoiceRecorder, transcribeAudio } from '@/utils/voice';
 
 interface InputAreaProps {
   input: string;
@@ -12,6 +13,7 @@ interface InputAreaProps {
   onSendMessage: () => void;
   onKeyPress: (e: React.KeyboardEvent) => void;
   isLoading: boolean;
+  currentLanguage?: string;
 }
 
 export function InputArea({
@@ -21,11 +23,14 @@ export function InputArea({
   setSelectedFile,
   onSendMessage,
   onKeyPress,
-  isLoading
+  isLoading,
+  currentLanguage
 }: InputAreaProps) {
   const { t } = useTranslation();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isRecording, setIsRecording] = useState(false);
+  const [voiceRecorder] = useState(() => new VoiceRecorder());
+  const [isTranscribing, setIsTranscribing] = useState(false);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -45,9 +50,31 @@ export function InputArea({
     }
   };
 
-  const handleVoiceToggle = () => {
-    // Voice recording functionality to be implemented
-    setIsRecording(!isRecording);
+  const handleVoiceToggle = async () => {
+    if (isRecording) {
+      // Stop recording and transcribe
+      try {
+        setIsTranscribing(true);
+        const audioBlob = await voiceRecorder.stopRecording();
+        const transcribedText = await transcribeAudio(audioBlob, currentLanguage);
+        setInput(input + (input ? ' ' : '') + transcribedText);
+      } catch (error) {
+        console.error('Voice recording error:', error);
+        alert(error instanceof Error ? error.message : t('voice.transcriptionFailed'));
+      } finally {
+        setIsRecording(false);
+        setIsTranscribing(false);
+      }
+    } else {
+      // Start recording
+      try {
+        await voiceRecorder.startRecording();
+        setIsRecording(true);
+      } catch (error) {
+        console.error('Failed to start recording:', error);
+        alert(error instanceof Error ? error.message : t('voice.permissionDenied'));
+      }
+    }
   };
 
   return (
@@ -98,10 +125,14 @@ export function InputArea({
                 ? 'text-red-500 bg-red-50 dark:bg-red-900/20'
                 : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600'
             }`}
-            disabled={isLoading}
+            disabled={isLoading || isTranscribing}
             title={isRecording ? t('voice.stopRecording') : t('voice.startRecording')}
           >
-            <Mic className={`h-5 w-5 ${isRecording ? 'animate-pulse' : ''}`} />
+            {isTranscribing ? (
+              <Loader2 className="h-5 w-5 animate-spin" />
+            ) : (
+              <Mic className={`h-5 w-5 ${isRecording ? 'animate-pulse' : ''}`} />
+            )}
           </button>
           
           <button

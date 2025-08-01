@@ -9,9 +9,10 @@ import { Loader2 } from 'lucide-react';
 interface MessageListProps {
   messages: Message[];
   isLoading: boolean;
+  selectedVoice?: string;
 }
 
-export function MessageList({ messages, isLoading }: MessageListProps) {
+export function MessageList({ messages, isLoading, selectedVoice }: MessageListProps) {
   const { t } = useTranslation();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -26,7 +27,7 @@ export function MessageList({ messages, isLoading }: MessageListProps) {
   return (
     <div className="h-full overflow-y-auto p-4 space-y-4">
       {messages.map((message) => (
-        <MessageBubble key={message.id} message={message} />
+        <MessageBubble key={message.id} message={message} selectedVoice={selectedVoice} />
       ))}
       
       {isLoading && (

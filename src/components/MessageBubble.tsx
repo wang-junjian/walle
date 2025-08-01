@@ -3,18 +3,21 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Message } from '@/types/chat';
-import { User, Bot, Image as ImageIcon, BarChart3, ChevronDown, ChevronUp } from 'lucide-react';
+import { User, Bot, Image as ImageIcon, BarChart3, ChevronDown, ChevronUp, Volume2, VolumeX } from 'lucide-react';
 import { formatTime } from '@/utils/time';
+import { synthesizeSpeech, playAudio } from '@/utils/voice';
 
 interface MessageBubbleProps {
   message: Message;
+  selectedVoice?: string;
 }
 
-export function MessageBubble({ message }: MessageBubbleProps) {
+export function MessageBubble({ message, selectedVoice }: MessageBubbleProps) {
   const { t } = useTranslation();
   const isUser = message.role === 'user';
   const [showStats, setShowStats] = useState(false);
   const [imageUrls, setImageUrls] = useState<string[]>([]);
+  const [isSynthesizing, setIsSynthesizing] = useState(false);
 
   // Create object URLs for image attachments
   useEffect(() => {
@@ -56,6 +59,39 @@ export function MessageBubble({ message }: MessageBubbleProps) {
       });
     };
   }, [message.attachments, message.id]); // Add message.id to dependencies
+
+    const handlePlaySpeech = async () => {
+    if (!message.content || isSynthesizing) return;
+    
+    try {
+      setIsSynthesizing(true);
+      const audioBlob = await synthesizeSpeech(message.content, selectedVoice);
+      await playAudio(audioBlob);
+    } catch (error) {
+      console.error('Text-to-speech error:', error);
+      
+      // 提供更具体的错误信息
+      let errorMessage = t('voice.synthesisFailed');
+      if (error instanceof Error) {
+        // 如果是网络错误或API错误，提供更具体的信息
+        if (error.message.includes('fetch')) {
+          errorMessage = t('voice.networkError');
+        } else if (error.message.includes('401')) {
+          errorMessage = t('voice.apiKeyError');
+        } else if (error.message.includes('429')) {
+          errorMessage = t('voice.rateLimitError');
+        } else if (error.message.includes('500')) {
+          errorMessage = t('voice.serverError');
+        } else if (error.message.includes('音频播放失败')) {
+          errorMessage = t('voice.audioPlayError');
+        }
+      }
+      
+      alert(errorMessage);
+    } finally {
+      setIsSynthesizing(false);
+    }
+  };
 
   return (
     <div className={`flex items-start space-x-3 ${isUser ? 'justify-end' : 'justify-start'}`}>
@@ -119,7 +155,27 @@ export function MessageBubble({ message }: MessageBubbleProps) {
           ))}
           
           {message.content && (
-            <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+            <div className="space-y-2">
+              <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+              
+              {/* Voice playback button for assistant messages */}
+              {!isUser && (
+                <div className="flex justify-end">
+                  <button
+                    onClick={handlePlaySpeech}
+                    disabled={isSynthesizing}
+                    className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                    title={t('voice.playSpeech')}
+                  >
+                    {isSynthesizing ? (
+                      <VolumeX className="h-4 w-4 opacity-50" />
+                    ) : (
+                      <Volume2 className="h-4 w-4 opacity-75 hover:opacity-100" />
+                    )}
+                  </button>
+                </div>
+              )}
+            </div>
           )}
           
           {/* Display statistics for assistant messages */}
