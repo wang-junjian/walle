@@ -227,12 +227,6 @@ export function MessageBubble({ message, selectedVoice }: MessageBubbleProps) {
           {formatTime(message.timestamp)}
         </p>
       </div>
-      
-      {isUser && (
-        <div className="flex-shrink-0 w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
-          <User className="h-5 w-5 text-white" />
-        </div>
-      )}
     </div>
   );
 }
