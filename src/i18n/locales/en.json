@@ -1,8 +1,8 @@
 {
   "chat": {
-    "title": "Walle AI Assistant",
+    "title": "WALL·E",
     "subtitle": "Your intelligent assistant for text, voice, and image interactions",
-    "welcome": "Hello! I'm Walle, your AI assistant. I can help you with text, voice, and image interactions. How can I assist you today?",
+    "welcome": "Hello! I'm Walle.",
     "newChat": "New Chat",
     "sendMessage": "Send message",
     "typeMessage": "Type your message...",

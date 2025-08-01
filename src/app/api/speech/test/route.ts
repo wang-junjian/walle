@@ -10,7 +10,7 @@ const openai = new OpenAI({
 export async function GET() {
   try {
     // 测试简单的文字转语音
-    const testText = "你好，这是一个语音测试。";
+    const testText = "您好，这是一个语音测试。";
     
     console.log('Testing TTS with:', {
       model: voiceConfig.ttsModel,

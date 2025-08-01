@@ -105,7 +105,7 @@ export function MessageBubble({ message, selectedVoice }: MessageBubbleProps) {
         <div
           className={`rounded-lg p-3 ${
             isUser
-              ? 'bg-blue-500 text-white'
+              ? 'bg-green-200 dark:bg-gray-700 text-gray-900 dark:text-white'
               : 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white'
           }`}
         >
@@ -113,10 +113,6 @@ export function MessageBubble({ message, selectedVoice }: MessageBubbleProps) {
           {message.attachments?.filter(attachment => attachment.type === 'image').map((attachment, index) => (
             <div key={index} className="mb-3">
               <div className="space-y-2">
-                <div className="flex items-center space-x-2 text-sm opacity-75">
-                  <ImageIcon className="h-4 w-4" />
-                  <span>{t('chat.imageAttached')}</span>
-                </div>
                 {imageUrls[index] ? (
                   <div className="relative max-w-xs">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
