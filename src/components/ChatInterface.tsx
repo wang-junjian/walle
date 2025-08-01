@@ -335,16 +335,16 @@ export function ChatInterface({ selectedModel, onModelChange }: ChatInterfacePro
   };
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl overflow-hidden h-full flex flex-col min-h-0">
+    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl overflow-hidden h-full flex flex-col min-h-0">
       {/* Chat Header with New Chat Button */}
-      <div className="border-b border-gray-200 dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-750 flex-shrink-0">
+      <div className="border-b border-gray-200 dark:border-gray-700 p-6 bg-gray-50 dark:bg-gray-750 flex-shrink-0">
         <div className="flex justify-between items-center">
           <button
             onClick={handleNewChat}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors duration-200 font-medium"
+            className="flex items-center gap-2 px-5 py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors duration-200 font-medium text-base"
           >
             <svg 
-              className="w-4 h-4" 
+              className="w-5 h-5" 
               fill="none" 
               stroke="currentColor" 
               viewBox="0 0 24 24"
@@ -358,7 +358,7 @@ export function ChatInterface({ selectedModel, onModelChange }: ChatInterfacePro
             </svg>
             {t('chat.newChat')}
           </button>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <LanguageSelector />
             <VoiceSelector 
               value={selectedVoice} 

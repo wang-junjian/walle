@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { Message } from '@/types/chat';
 import { User, Bot } from 'lucide-react';
 import { formatTime } from '@/utils/time';
@@ -60,16 +62,16 @@ export function MessageBubble({ message, selectedVoice, onRegenerate }: MessageB
   }, [message.attachments, message.id]); // Add message.id to dependencies
 
   return (
-    <div className={`flex items-start space-x-3 ${isUser ? 'justify-end' : 'justify-start'}`}>
+    <div className={`flex items-start space-x-5 ${isUser ? 'justify-end' : 'justify-start'}`}>
       {!isUser && (
-        <div className="flex-shrink-0 w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
-          <Bot className="h-5 w-5 text-white" />
+        <div className="flex-shrink-0 w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center">
+          <Bot className="h-7 w-7 text-white" />
         </div>
       )}
       
-      <div className={`max-w-xs lg:max-w-md ${isUser ? 'order-1' : 'order-2'}`}>
+      <div className={`max-w-[80%] lg:max-w-[75%] xl:max-w-[70%] ${isUser ? 'order-1' : 'order-2'}`}>
         <div
-          className={`rounded-lg p-3 ${
+          className={`rounded-xl p-5 ${
             isUser
               ? 'bg-green-200 dark:bg-gray-700 text-gray-900 dark:text-white'
               : 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white'
@@ -118,7 +120,44 @@ export function MessageBubble({ message, selectedVoice, onRegenerate }: MessageB
           
           {message.content && (
             <div className="space-y-2">
-              <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+              {isUser ? (
+                <p className="text-base whitespace-pre-wrap leading-relaxed">{message.content}</p>
+              ) : (
+                <div className="prose prose-sm max-w-none dark:prose-invert 
+                              prose-headings:text-gray-900 dark:prose-headings:text-white
+                              prose-p:text-gray-900 dark:prose-p:text-white prose-p:text-base prose-p:leading-relaxed
+                              prose-strong:text-gray-900 dark:prose-strong:text-white
+                              prose-code:text-blue-600 dark:prose-code:text-blue-400 prose-code:bg-gray-100 dark:prose-code:bg-gray-800
+                              prose-pre:bg-gray-100 dark:prose-pre:bg-gray-800
+                              prose-blockquote:border-gray-300 dark:prose-blockquote:border-gray-600
+                              prose-li:text-gray-900 dark:prose-li:text-white
+                              prose-a:text-blue-600 dark:prose-a:text-blue-400">
+                  <ReactMarkdown 
+                    remarkPlugins={[remarkGfm]}
+                    components={{
+                      code({ className, children, ...props }) {
+                        const match = /language-(\w+)/.exec(className || '');
+                        if (match) {
+                          return (
+                            <pre className="overflow-x-auto p-3 rounded-md bg-gray-100 dark:bg-gray-800">
+                              <code className={className} {...props}>
+                                {children}
+                              </code>
+                            </pre>
+                          );
+                        }
+                        return (
+                          <code className={className} {...props}>
+                            {children}
+                          </code>
+                        );
+                      },
+                    }}
+                  >
+                    {message.content}
+                  </ReactMarkdown>
+                </div>
+              )}
             </div>
           )}
           
@@ -132,10 +171,16 @@ export function MessageBubble({ message, selectedVoice, onRegenerate }: MessageB
           )}
         </div>
         
-        <p className={`text-xs text-gray-500 dark:text-gray-400 mt-1 ${isUser ? 'text-right' : 'text-left'}`}>
+        <p className={`text-xs text-gray-500 dark:text-gray-400 mt-2 ${isUser ? 'text-right' : 'text-left'}`}>
           {formatTime(message.timestamp)}
         </p>
       </div>
+      
+      {isUser && (
+        <div className="flex-shrink-0 w-12 h-12 bg-green-500 rounded-full flex items-center justify-center order-2">
+          <User className="h-7 w-7 text-white" />
+        </div>
+      )}
     </div>
   );
 }
