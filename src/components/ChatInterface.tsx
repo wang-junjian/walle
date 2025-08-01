@@ -30,6 +30,9 @@ export function ChatInterface({ selectedModel, onModelChange }: ChatInterfacePro
   const [isLoading, setIsLoading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [selectedVoice, setSelectedVoice] = useState(voiceConfig.defaultVoice);
+  
+  // 简化：只需要录音状态
+  const [isRecording, setIsRecording] = useState(false);
 
   // Update welcome message when language changes
   useEffect(() => {
@@ -52,6 +55,7 @@ export function ChatInterface({ selectedModel, onModelChange }: ChatInterfacePro
     setInput('');
     setSelectedFile(null);
     setIsLoading(false);
+    setIsRecording(false);
   };
 
   const handleRegenerate = async (messageId: string) => {
@@ -190,11 +194,14 @@ export function ChatInterface({ selectedModel, onModelChange }: ChatInterfacePro
   };
 
   const handleSendMessage = async () => {
-    if (!input.trim() && !selectedFile) return;
+    // 简化：只使用 input 状态
+    const fullMessage = input.trim();
+    
+    if (!fullMessage && !selectedFile) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
-      content: input,
+      content: fullMessage,
       role: 'user',
       timestamp: new Date(),
       attachments: selectedFile ? [{ 
@@ -223,7 +230,7 @@ export function ChatInterface({ selectedModel, onModelChange }: ChatInterfacePro
     try {
       // Prepare the request data
       const formData = new FormData();
-      formData.append('message', input);
+      formData.append('message', fullMessage);
       if (selectedFile) {
         formData.append('image', selectedFile);
       }
@@ -393,6 +400,8 @@ export function ChatInterface({ selectedModel, onModelChange }: ChatInterfacePro
           onKeyPress={handleKeyPress}
           isLoading={isLoading}
           currentLanguage={i18n.language}
+          isRecording={isRecording}
+          setIsRecording={setIsRecording}
         />
         <div className="text-center">
           <p className="text-xs text-gray-500 dark:text-gray-400">

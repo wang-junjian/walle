@@ -36,6 +36,7 @@
   "voice": {
     "startRecording": "Start voice recording",
     "stopRecording": "Stop recording",
+    "recording": "Recording",
     "playSpeech": "Play speech",
     "transcribing": "Transcribing audio...",
     "synthesizing": "Synthesizing speech...",
@@ -48,7 +49,9 @@
     "apiKeyError": "Invalid API key. Please check configuration.",
     "rateLimitError": "API rate limit exceeded. Please try again later.",
     "serverError": "Server error. Please try again later.",
-    "audioPlayError": "Audio playback failed. Please check browser audio permissions."
+    "audioPlayError": "Audio playback failed. Please check browser audio permissions.",
+    "realtimeTranscription": "Real-time transcription",
+    "speechRecognitionNotSupported": "Browser does not support real-time speech recognition"
   },
   "toolbar": {
     "playAudio": "Play Audio",

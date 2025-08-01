@@ -1,7 +1,42 @@
+// 声明全局的 SpeechRecognition 接口
+declare global {
+  interface Window {
+    SpeechRecognition: any;
+    webkitSpeechRecognition: any;
+  }
+}
+
+interface SpeechRecognitionEvent extends Event {
+  results: SpeechRecognitionResultList;
+  resultIndex: number;
+}
+
+interface SpeechRecognitionResultList {
+  length: number;
+  item(index: number): SpeechRecognitionResult;
+  [index: number]: SpeechRecognitionResult;
+}
+
+interface SpeechRecognitionResult {
+  length: number;
+  item(index: number): SpeechRecognitionAlternative;
+  [index: number]: SpeechRecognitionAlternative;
+  isFinal: boolean;
+}
+
+interface SpeechRecognitionAlternative {
+  transcript: string;
+  confidence: number;
+}
+
 export class VoiceRecorder {
   private mediaRecorder: MediaRecorder | null = null;
   private audioChunks: Blob[] = [];
   private stream: MediaStream | null = null;
+  private speechRecognition: any = null;
+  private onInterimTranscript?: (text: string) => void;
+  private onFinalTranscript?: (text: string) => void;
+  private currentLanguage: string = 'zh-CN';
 
   async startRecording(): Promise<void> {
     try {
@@ -22,6 +57,75 @@ export class VoiceRecorder {
     }
   }
 
+  async startRealtimeRecording(
+    language: string = 'zh-CN',
+    onInterimTranscript?: (text: string) => void,
+    onFinalTranscript?: (text: string) => void
+  ): Promise<void> {
+    // 检查浏览器支持
+    if (!window.SpeechRecognition && !window.webkitSpeechRecognition) {
+      throw new Error('浏览器不支持实时语音识别功能');
+    }
+
+    this.currentLanguage = language;
+    this.onInterimTranscript = onInterimTranscript;
+    this.onFinalTranscript = onFinalTranscript;
+
+    // 创建 SpeechRecognition 实例
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    this.speechRecognition = new SpeechRecognition();
+
+    // 配置识别选项
+    this.speechRecognition.continuous = true; // 持续识别
+    this.speechRecognition.interimResults = true; // 返回中间结果
+    this.speechRecognition.lang = language;
+    this.speechRecognition.maxAlternatives = 1;
+
+    // 设置事件处理器
+    this.speechRecognition.onresult = (event: SpeechRecognitionEvent) => {
+      let interimTranscript = '';
+      let finalTranscript = '';
+
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const result = event.results[i];
+        const transcript = result[0].transcript;
+
+        if (result.isFinal) {
+          finalTranscript += transcript;
+        } else {
+          interimTranscript += transcript;
+        }
+      }
+
+      // 调用回调函数
+      if (interimTranscript && this.onInterimTranscript) {
+        this.onInterimTranscript(interimTranscript);
+      }
+      if (finalTranscript && this.onFinalTranscript) {
+        this.onFinalTranscript(finalTranscript);
+      }
+    };
+
+    this.speechRecognition.onerror = (event: any) => {
+      console.error('Speech recognition error:', event.error);
+      if (event.error === 'not-allowed') {
+        throw new Error('麦克风权限被拒绝，请允许麦克风访问权限');
+      }
+    };
+
+    this.speechRecognition.onend = () => {
+      console.log('Speech recognition ended');
+    };
+
+    // 开始识别
+    try {
+      this.speechRecognition.start();
+    } catch (error) {
+      console.error('Failed to start speech recognition:', error);
+      throw new Error('启动语音识别失败');
+    }
+  }
+
   stopRecording(): Promise<Blob> {
     return new Promise((resolve, reject) => {
       if (!this.mediaRecorder) {
@@ -39,6 +143,15 @@ export class VoiceRecorder {
     });
   }
 
+  stopRealtimeRecording(): void {
+    if (this.speechRecognition) {
+      this.speechRecognition.stop();
+      this.speechRecognition = null;
+    }
+    this.onInterimTranscript = undefined;
+    this.onFinalTranscript = undefined;
+  }
+
   private cleanup(): void {
     if (this.stream) {
       this.stream.getTracks().forEach(track => track.stop());
@@ -50,6 +163,10 @@ export class VoiceRecorder {
 
   isRecording(): boolean {
     return this.mediaRecorder?.state === 'recording';
+  }
+
+  isRealtimeRecording(): boolean {
+    return this.speechRecognition !== null;
   }
 }
 
@@ -223,4 +340,23 @@ export function stopAudio(): void {
 
 export function isAudioPlaying(): boolean {
   return audioManager.isPlaying();
+}
+
+// 语言代码转换工具函数
+export function getWebSpeechLanguage(userLang: string): string {
+  const languageMap: { [key: string]: string } = {
+    'zh': 'zh-CN',
+    'zh-cn': 'zh-CN',
+    'zh-CN': 'zh-CN',
+    'en': 'en-US',
+    'en-us': 'en-US',
+    'en-US': 'en-US',
+  };
+  
+  return languageMap[userLang] || 'zh-CN';
+}
+
+// 检查浏览器是否支持 Web Speech API
+export function isSpeechRecognitionSupported(): boolean {
+  return !!(window.SpeechRecognition || window.webkitSpeechRecognition);
 }
