@@ -10,6 +10,7 @@
     "attachFile": "附加文件",
     "loading": "Walle 正在思考中...",
     "error": "抱歉，处理您的请求时遇到了错误。请重试。",
+    "aiDisclaimer": "内容由AI生成，请仔细甄别",
     "modelSelector": "选择模型",
     "languageSelector": "语言",
     "imageAttached": "已附加图片"

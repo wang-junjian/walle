@@ -391,6 +391,11 @@ export function ChatInterface({ selectedModel, onModelChange }: ChatInterfacePro
           isLoading={isLoading}
           currentLanguage={i18n.language}
         />
+        <div className="text-center">
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            {t('chat.aiDisclaimer')}
+          </p>
+        </div>
       </div>
     </div>
   );
