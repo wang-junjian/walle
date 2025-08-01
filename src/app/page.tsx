@@ -16,15 +16,9 @@ export default function Home() {
 
   return (
     <div className="w-screen h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 flex flex-col overflow-hidden">
-      <div className="flex-1 flex flex-col p-4 max-w-none min-h-0">
-        <header className="text-center mb-6 flex-shrink-0">
-          <h1 className="text-4xl font-bold text-gray-800 dark:text-white mb-2">
-            🤖 {t('chat.title')}
-          </h1>
-        </header>
-        
+      <div className="flex-1 flex flex-col p-2 max-w-none min-h-0">
         <main className="flex-1 flex justify-center min-h-0">
-          <div className="w-full max-w-4xl chat-container">
+          <div className="w-full max-w-4xl h-full">
             <ChatInterface 
               selectedModel={selectedModel} 
               onModelChange={handleModelChange}

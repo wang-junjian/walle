@@ -68,12 +68,6 @@ body {
   min-height: 0;
 }
 
-/* 为聊天容器添加额外的高度约束 */
-.chat-container {
-  height: calc(100vh - 8rem); /* 减去页面的 padding 和 header */
-  min-height: 400px;
-}
-
 /* 确保页面布局不会出现双重滚动条 */
 html, body {
   overflow: hidden;
