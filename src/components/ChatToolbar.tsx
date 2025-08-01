@@ -118,7 +118,7 @@ export function ChatToolbar({ message, selectedVoice, onRegenerate }: ChatToolba
     }
   };
 
-  // 令牌统计浮动框
+  // 词元统计浮动框
   const TokenStatsTooltip = () => {
     if (!message.stats) return null;
 
@@ -219,7 +219,7 @@ export function ChatToolbar({ message, selectedVoice, onRegenerate }: ChatToolba
         </button>
       )}
 
-      {/* 令牌统计 */}
+      {/* 词元统计 */}
       {message.stats && (
         <div className="relative">
           <button
