@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { oneDark, oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { Message } from '@/types/chat';
 import { User, Bot, Brain, ChevronDown, ChevronUp } from 'lucide-react';
 import { formatTime } from '@/utils/time';
@@ -20,6 +22,25 @@ export function MessageBubble({ message, selectedVoice, onRegenerate, onToggleRe
   const { t } = useTranslation();
   const isUser = message.role === 'user';
   const [imageUrls, setImageUrls] = useState<string[]>([]);
+  const [isDark, setIsDark] = useState(false);
+  
+  // 检测暗色主题
+  useEffect(() => {
+    const checkDarkMode = () => {
+      setIsDark(document.documentElement.classList.contains('dark'));
+    };
+    
+    checkDarkMode();
+    
+    // 监听主题变化
+    const observer = new MutationObserver(checkDarkMode);
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class']
+    });
+    
+    return () => observer.disconnect();
+  }, []);
   
   // 使用消息中的展开状态，而不是本地状态
   const showReasoning = message.reasoning_expanded ?? false;
@@ -220,22 +241,51 @@ export function MessageBubble({ message, selectedVoice, onRegenerate, onToggleRe
                   <ReactMarkdown 
                     remarkPlugins={[remarkGfm]}
                     components={{
-                      code({ className, children, ...props }) {
+                      code({ className, children }) {
                         const match = /language-(\w+)/.exec(className || '');
-                        if (match) {
+                        const language = match ? match[1] : '';
+                        const isCodeBlock = className?.includes('language-');
+                        
+                        if (isCodeBlock && language) {
+                          // 代码块 - 使用语法高亮
                           return (
-                            <pre className="overflow-x-auto p-3 rounded-md bg-gray-100 dark:bg-gray-800">
-                              <code className={className} {...props}>
+                            <SyntaxHighlighter
+                              style={isDark ? oneDark as any : oneLight as any}
+                              language={language}
+                              PreTag="div"
+                              customStyle={{
+                                margin: '1rem 0',
+                                borderRadius: '0.375rem',
+                                fontSize: '0.875rem',
+                                lineHeight: '1.5',
+                              }}
+                              codeTagProps={{
+                                style: {
+                                  fontSize: '0.875rem',
+                                  fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Monaco, Inconsolata, "Roboto Mono", monospace',
+                                }
+                              }}
+                            >
+                              {String(children).replace(/\n$/, '')}
+                            </SyntaxHighlighter>
+                          );
+                        } else if (isCodeBlock) {
+                          // 无语言的代码块
+                          return (
+                            <pre className="overflow-x-auto p-3 rounded-md bg-gray-100 dark:bg-gray-800 border">
+                              <code className="text-sm font-mono">
                                 {children}
                               </code>
                             </pre>
                           );
+                        } else {
+                          // 行内代码
+                          return (
+                            <code className="px-1.5 py-0.5 rounded text-sm bg-gray-100 dark:bg-gray-800 text-blue-600 dark:text-blue-400 font-mono">
+                              {children}
+                            </code>
+                          );
                         }
-                        return (
-                          <code className={className} {...props}>
-                            {children}
-                          </code>
-                        );
                       },
                     }}
                   >
