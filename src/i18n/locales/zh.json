@@ -14,7 +14,9 @@
     "modelSelector": "选择模型",
     "languageSelector": "语言",
     "imageAttached": "已附加图片",
-    "thinking": "思考"
+    "thinking": "思考",
+    "copy": "复制",
+    "copied": "已复制"
   },
   "stats": {
     "inputTokens": "输入词元",

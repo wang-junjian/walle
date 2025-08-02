@@ -14,7 +14,9 @@
     "modelSelector": "Select Model",
     "languageSelector": "Language",
     "imageAttached": "Image attached",
-    "thinking": "Thinking"
+    "thinking": "Thinking",
+    "copy": "Copy",
+    "copied": "Copied"
   },
   "stats": {
     "inputTokens": "Input Tokens",

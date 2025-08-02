@@ -7,7 +7,7 @@ import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark, oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { Message } from '@/types/chat';
-import { User, Bot, Brain, ChevronDown, ChevronUp } from 'lucide-react';
+import { User, Bot, Brain, ChevronDown, ChevronUp, Copy, Check } from 'lucide-react';
 import { formatTime } from '@/utils/time';
 import { ChatToolbar } from './ChatToolbar';
 
@@ -23,6 +23,7 @@ export function MessageBubble({ message, selectedVoice, onRegenerate, onToggleRe
   const isUser = message.role === 'user';
   const [imageUrls, setImageUrls] = useState<string[]>([]);
   const [isDark, setIsDark] = useState(false);
+  const [copiedBlocks, setCopiedBlocks] = useState<Set<string>>(new Set());
   
   // 检测暗色主题
   useEffect(() => {
@@ -44,6 +45,31 @@ export function MessageBubble({ message, selectedVoice, onRegenerate, onToggleRe
   
   // 使用消息中的展开状态，而不是本地状态
   const showReasoning = message.reasoning_expanded ?? false;
+
+  // 复制代码块内容
+  const copyToClipboard = async (code: string, blockId: string) => {
+    try {
+      await navigator.clipboard.writeText(code);
+      setCopiedBlocks(prev => new Set(prev).add(blockId));
+      
+      // 添加一个短暂的触觉反馈（如果设备支持）
+      if ('vibrate' in navigator) {
+        navigator.vibrate(50);
+      }
+      
+      // 1.5秒后清除复制状态，更快的反馈
+      setTimeout(() => {
+        setCopiedBlocks(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(blockId);
+          return newSet;
+        });
+      }, 1500);
+    } catch (err) {
+      console.error('Failed to copy code:', err);
+      // 如果复制失败，可以添加错误提示
+    }
+  };
 
   // Create object URLs for image attachments
   useEffect(() => {
@@ -94,7 +120,7 @@ export function MessageBubble({ message, selectedVoice, onRegenerate, onToggleRe
         </div>
       )}
       
-      <div className={`max-w-[80%] lg:max-w-[75%] xl:max-w-[70%] ${isUser ? 'order-1' : 'order-2'}`}>
+      <div className={`${isUser ? 'max-w-[80%] lg:max-w-[75%] xl:max-w-[70%]' : 'xl:max-w-[85%]'} ${isUser ? 'order-1' : 'order-2'}`}>
         <div
           className={`rounded-xl p-5 ${
             isUser
@@ -245,38 +271,73 @@ export function MessageBubble({ message, selectedVoice, onRegenerate, onToggleRe
                         const match = /language-(\w+)/.exec(className || '');
                         const language = match ? match[1] : '';
                         const isCodeBlock = className?.includes('language-');
+                        const codeContent = String(children).replace(/\n$/, '');
+                        const blockId = `${message.id}-${Math.random().toString(36).substr(2, 9)}`;
                         
                         if (isCodeBlock && language) {
                           // 代码块 - 使用语法高亮
                           return (
-                            <SyntaxHighlighter
-                              style={isDark ? oneDark as any : oneLight as any}
-                              language={language}
-                              PreTag="div"
-                              customStyle={{
-                                margin: '1rem 0',
-                                borderRadius: '0.375rem',
-                                fontSize: '0.875rem',
-                                lineHeight: '1.5',
-                              }}
-                              codeTagProps={{
-                                style: {
+                            <div className="relative group">
+                              <div className="flex items-center justify-between bg-gray-50 dark:bg-gray-800 px-4 py-2 rounded-t-md border-b border-gray-200 dark:border-gray-700">
+                                <span className="text-sm text-gray-600 dark:text-gray-400 font-medium">
+                                  {language}
+                                </span>
+                                <button
+                                  onClick={() => copyToClipboard(codeContent, blockId)}
+                                  className="p-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-all duration-200 transform hover:scale-110 active:scale-95"
+                                  title={copiedBlocks.has(blockId) ? t('chat.copied', '已复制') : t('chat.copy', '复制')}
+                                >
+                                  {copiedBlocks.has(blockId) ? (
+                                    <Check className="h-4 w-4 text-green-600 dark:text-green-400 check-bounce" />
+                                  ) : (
+                                    <Copy className="h-4 w-4" />
+                                  )}
+                                </button>
+                              </div>
+                              <SyntaxHighlighter
+                                style={isDark ? oneDark as any : oneLight as any}
+                                language={language}
+                                PreTag="div"
+                                customStyle={{
+                                  margin: 0,
+                                  borderRadius: '0 0 0.375rem 0.375rem',
                                   fontSize: '0.875rem',
-                                  fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Monaco, Inconsolata, "Roboto Mono", monospace',
-                                }
-                              }}
-                            >
-                              {String(children).replace(/\n$/, '')}
-                            </SyntaxHighlighter>
+                                  lineHeight: '1.5',
+                                }}
+                                codeTagProps={{
+                                  style: {
+                                    fontSize: '0.875rem',
+                                    fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Monaco, Inconsolata, "Roboto Mono", monospace',
+                                  }
+                                }}
+                              >
+                                {codeContent}
+                              </SyntaxHighlighter>
+                            </div>
                           );
                         } else if (isCodeBlock) {
                           // 无语言的代码块
                           return (
-                            <pre className="overflow-x-auto p-3 rounded-md bg-gray-100 dark:bg-gray-800 border">
-                              <code className="text-sm font-mono">
-                                {children}
-                              </code>
-                            </pre>
+                            <div className="relative group">
+                              <div className="flex items-center justify-end bg-gray-50 dark:bg-gray-800 px-4 py-2 rounded-t-md border-b border-gray-200 dark:border-gray-700">
+                                <button
+                                  onClick={() => copyToClipboard(codeContent, blockId)}
+                                  className="p-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-all duration-200 transform hover:scale-110 active:scale-95"
+                                  title={copiedBlocks.has(blockId) ? t('chat.copied', '已复制') : t('chat.copy', '复制')}
+                                >
+                                  {copiedBlocks.has(blockId) ? (
+                                    <Check className="h-4 w-4 text-green-600 dark:text-green-400 check-bounce" />
+                                  ) : (
+                                    <Copy className="h-4 w-4" />
+                                  )}
+                                </button>
+                              </div>
+                              <pre className="overflow-x-auto p-3 rounded-b-md bg-gray-100 dark:bg-gray-800 border-0 m-0">
+                                <code className="text-sm font-mono">
+                                  {children}
+                                </code>
+                              </pre>
+                            </div>
                           );
                         } else {
                           // 行内代码
