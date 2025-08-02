@@ -65,5 +65,20 @@
     "tokenStats": "Token Statistics",
     "copyFailed": "Copy failed",
     "shareTitle": "Walle AI Conversation"
+  },
+  "robot": {
+    "status": {
+      "idle": "Hi! I'm Walle, your AI assistant. Ready to chat!",
+      "idleWithMessages": "Hi! I'm Walle, your AI assistant. We've had {{count}} messages so far!",
+      "thinking": "Walle is thinking about your message",
+      "listening": "Walle is listening to your voice",
+      "speaking": "Walle is speaking",
+      "typing": "Walle is typing a response",
+      "error": "Walle encountered an error"
+    },
+    "aria": {
+      "robotAvatar": "Walle robot avatar",
+      "clickToInteract": "Click to interact with Walle"
+    }
   }
 }

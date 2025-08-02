@@ -76,7 +76,13 @@ Walle is designed to work with OpenAI-compatible APIs. You can use:
 2. **Image Analysis**: Click the image icon to upload an image for analysis
 3. **Voice Input**: Click the microphone icon to start voice recording (coming soon)
 
-## 📁 Project Structure
+## � Documentation
+
+- [Component Documentation](./docs/README.md)
+- [Robot UX Optimization Guide](./docs/robot-ux-optimization.md)
+- [Development Guidelines](./.github/copilot-instructions.md)
+
+## �📁 Project Structure
 
 ```
 src/

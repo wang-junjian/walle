@@ -20,6 +20,7 @@
 - **语义化标签**: 添加了 ARIA 标签和描述
 - **状态播报**: 屏幕阅读器可以读取当前状态
 - **键盘导航**: 完整的键盘操作支持
+- **国际化支持**: 所有状态描述和提示文本支持多语言
 
 ### 4. 性能优化
 - **智能动画**: 仅在需要时运行动画，减少 CPU 使用
@@ -83,16 +84,45 @@ useEffect(() => {
 
 ### 3. 无障碍支持
 ```typescript
-// 动态状态描述
+// 动态状态描述 - 支持国际化
 const statusDescription = useMemo(() => {
   switch (status) {
-    case 'thinking': return 'Walle is thinking about your message';
+    case 'thinking': 
+      return t('robot.status.thinking');
+    case 'listening': 
+      return t('robot.status.listening');
     // ... 其他状态描述
   }
-}, [status, messageCount]);
+}, [status, messageCount, t]);
 ```
 
-## 🎭 表情系统详解
+## � 国际化支持
+
+### 多语言状态描述
+机器人的所有状态描述和提示文本都支持国际化：
+
+#### 英文状态描述
+- **idle**: "Hi! I'm Walle, your AI assistant. Ready to chat!"
+- **thinking**: "Walle is thinking about your message"
+- **listening**: "Walle is listening to your voice"
+- **speaking**: "Walle is speaking"
+- **typing**: "Walle is typing a response"
+- **error**: "Walle encountered an error"
+
+#### 中文状态描述
+- **idle**: "您好！我是Walle，您的AI助手。准备聊天！"
+- **thinking**: "Walle正在思考您的消息"
+- **listening**: "Walle正在聆听您的语音"
+- **speaking**: "Walle正在说话"
+- **typing**: "Walle正在输入回复"
+- **error**: "Walle遇到了错误"
+
+### 动态消息计数
+当有对话历史时，状态描述会包含消息数量：
+- **英文**: "Hi! I'm Walle, your AI assistant. We've had {{count}} messages so far!"
+- **中文**: "您好！我是Walle，您的AI助手。我们已经聊了{{count}}条消息了！"
+
+## �🎭 表情系统详解
 
 ### 眼睛变化
 - **正常**: `scaleY-100` - 默认大小
@@ -138,6 +168,7 @@ const statusDescription = useMemo(() => {
 1. **音效反馈**: 添加状态切换音效
 2. **触觉反馈**: 移动端振动反馈
 3. **主题适配**: 根据应用主题调整配色
+4. ✅ **国际化完善**: 已实现所有文本的多语言支持
 
 ### 中期优化 (1 个月)
 1. **个性化**: 用户可选择机器人外观风格

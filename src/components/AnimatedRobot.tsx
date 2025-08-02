@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 
 interface AnimatedRobotProps {
   className?: string;
@@ -15,6 +16,7 @@ export function AnimatedRobot({
   status = 'idle',
   messageCount = 0 
 }: AnimatedRobotProps) {
+  const { t } = useTranslation();
   const [isBlinking, setIsBlinking] = useState(false);
   const [expression, setExpression] = useState<'normal' | 'happy' | 'thinking' | 'excited' | 'sleepy' | 'focused' | 'error'>('normal');
   const [eyeDirection, setEyeDirection] = useState<'center' | 'left' | 'right' | 'up'>('center');
@@ -179,14 +181,23 @@ export function AnimatedRobot({
   // 获取状态描述用于无障碍 - 使用 useMemo 优化
   const statusDescription = useMemo(() => {
     switch (status) {
-      case 'thinking': return 'Walle is thinking about your message';
-      case 'listening': return 'Walle is listening to your voice';
-      case 'speaking': return 'Walle is speaking';
-      case 'typing': return 'Walle is typing a response';
-      case 'error': return 'Walle encountered an error';
-      default: return `Hi! I'm Walle, your AI assistant. ${messageCount > 0 ? `We've had ${messageCount} messages so far!` : 'Ready to chat!'}`;
+      case 'thinking': 
+        return t('robot.status.thinking');
+      case 'listening': 
+        return t('robot.status.listening');
+      case 'speaking': 
+        return t('robot.status.speaking');
+      case 'typing': 
+        return t('robot.status.typing');
+      case 'error': 
+        return t('robot.status.error');
+      default: 
+        if (messageCount > 0) {
+          return t('robot.status.idleWithMessages', { count: messageCount });
+        }
+        return t('robot.status.idle');
     }
-  }, [status, messageCount]);
+  }, [status, messageCount, t]);
 
   const eyePos = getEyePosition();
 
@@ -198,7 +209,7 @@ export function AnimatedRobot({
       onClick={handleClick}
       role="button"
       tabIndex={0}
-      aria-label={statusDescription}
+      aria-label={`${t('robot.aria.robotAvatar')} - ${statusDescription}`}
       title={statusDescription}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {

@@ -65,5 +65,20 @@
     "tokenStats": "令牌统计",
     "copyFailed": "复制失败",
     "shareTitle": "Walle AI 对话内容"
+  },
+  "robot": {
+    "status": {
+      "idle": "您好！我是Walle，您的AI助手。准备聊天！",
+      "idleWithMessages": "您好！我是Walle，您的AI助手。我们已经聊了{{count}}条消息了！",
+      "thinking": "Walle正在思考您的消息",
+      "listening": "Walle正在聆听您的语音",
+      "speaking": "Walle正在说话",
+      "typing": "Walle正在输入回复",
+      "error": "Walle遇到了错误"
+    },
+    "aria": {
+      "robotAvatar": "Walle机器人头像",
+      "clickToInteract": "点击与Walle互动"
+    }
   }
 }
