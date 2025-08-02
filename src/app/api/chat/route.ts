@@ -1,23 +1,65 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 
-// Initialize OpenAI client
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-  baseURL: process.env.OPENAI_BASE_URL,
-});
+// Constants for validation
+const MAX_MESSAGE_LENGTH = 10000;
+const MAX_IMAGE_SIZE = 20 * 1024 * 1024; // 20MB
+const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+
+// Initialize OpenAI client with error handling
+const initializeOpenAI = () => {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    throw new Error('OPENAI_API_KEY is not configured');
+  }
+  
+  return new OpenAI({
+    apiKey,
+    baseURL: process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1',
+  });
+};
+
+// Input validation helpers
+const validateMessage = (message: string | null): string | null => {
+  if (!message) return null;
+  if (typeof message !== 'string') return 'Message must be a string';
+  if (message.length > MAX_MESSAGE_LENGTH) return `Message too long (max ${MAX_MESSAGE_LENGTH} characters)`;
+  return null;
+};
+
+const validateImage = (imageFile: File | null): string | null => {
+  if (!imageFile) return null;
+  if (imageFile.size > MAX_IMAGE_SIZE) return `Image too large (max ${MAX_IMAGE_SIZE / 1024 / 1024}MB)`;
+  if (!ALLOWED_IMAGE_TYPES.includes(imageFile.type)) return `Unsupported image type (allowed: ${ALLOWED_IMAGE_TYPES.join(', ')})`;
+  return null;
+};
 
 export async function POST(request: NextRequest) {
   try {
+    // Initialize OpenAI client
+    const openai = initializeOpenAI();
+
+    // Parse form data with error handling
     const formData = await request.formData();
     const message = formData.get('message') as string;
     const imageFile = formData.get('image') as File | null;
     const conversationHistory = formData.get('history') as string;
     const selectedModel = formData.get('model') as string;
 
+    // Validate inputs
+    const messageError = validateMessage(message);
+    if (messageError) {
+      return NextResponse.json({ error: messageError }, { status: 400 });
+    }
+
+    const imageError = validateImage(imageFile);
+    if (imageError) {
+      return NextResponse.json({ error: imageError }, { status: 400 });
+    }
+
     if (!message && !imageFile) {
       return NextResponse.json(
-        { error: 'Message or image is required' },
+        { error: 'Either message or image is required' },
         { status: 400 }
       );
     }
