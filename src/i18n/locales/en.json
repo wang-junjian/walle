@@ -19,9 +19,10 @@
     "copied": "Copied"
   },
   "stats": {
+    "tokenStatistics": "Token Statistics",
     "inputTokens": "Input Tokens",
     "outputTokens": "Output Tokens", 
-    "totalTokens": "Token Statistics",
+    "totalTokens": "Total Tokens",
     "duration": "Duration",
     "tokensPerSecond": "Tokens/sec"
   },

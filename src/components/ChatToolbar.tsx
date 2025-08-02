@@ -127,7 +127,7 @@ export function ChatToolbar({ message, selectedVoice, onRegenerate }: ChatToolba
         <div className="bg-gray-900 text-white text-xs rounded-lg p-3 shadow-lg min-w-48">
           <div className="flex items-center gap-1 mb-2 font-medium">
             <BarChart3 className="h-3 w-3" />
-            <span>{t('stats.totalTokens')}</span>
+            <span>{t('stats.tokenStatistics')}</span>
           </div>
           <div className="space-y-1">
             <div className="flex justify-between">

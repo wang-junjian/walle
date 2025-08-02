@@ -19,6 +19,7 @@
     "copied": "已复制"
   },
   "stats": {
+    "tokenStatistics": "词元统计",
     "inputTokens": "输入词元",
     "outputTokens": "输出词元",
     "totalTokens": "词元总计",
