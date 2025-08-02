@@ -2,7 +2,7 @@
   "chat": {
     "title": "WALL·E",
     "subtitle": "您的智能助手，支持文本、语音和图像交互",
-    "welcome": "您好！我是Walle。",
+    "welcome": "您好！我是Walle，您的智能助手。",
     "newChat": "新对话",
     "sendMessage": "发送消息",
     "typeMessage": "输入您的消息...",
@@ -62,7 +62,7 @@
     "copy": "复制",
     "share": "分享",
     "regenerate": "重新生成",
-    "tokenStats": "令牌统计",
+    "tokenStats": "词元统计",
     "copyFailed": "复制失败",
     "shareTitle": "Walle AI 对话内容"
   },
