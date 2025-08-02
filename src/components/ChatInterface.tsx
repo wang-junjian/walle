@@ -8,6 +8,7 @@ import { InputArea } from './InputArea';
 import { ModelSelector } from './ModelSelector';
 import { LanguageSelector } from './LanguageSelector';
 import VoiceSelector from './VoiceSelector';
+import { AnimatedRobot } from './AnimatedRobot';
 import { voiceConfig } from '@/config/voice';
 
 interface ChatInterfaceProps {
@@ -56,6 +57,14 @@ export function ChatInterface({ selectedModel, onModelChange }: ChatInterfacePro
     setSelectedFile(null);
     setIsLoading(false);
     setIsRecording(false);
+  };
+
+  // 根据当前状态确定机器人状态
+  const getRobotStatus = (): 'idle' | 'listening' | 'thinking' | 'speaking' | 'typing' | 'error' => {
+    if (isLoading) return 'thinking';
+    if (isRecording) return 'listening';
+    // 可以根据其他状态扩展
+    return 'idle';
   };
 
   const handleToggleReasoning = (messageId: string) => {
@@ -402,8 +411,14 @@ export function ChatInterface({ selectedModel, onModelChange }: ChatInterfacePro
             </svg>
             {t('chat.newChat')}
           </button>
-          <h1 className="text-4xl font-bold text-gray-800 dark:text-white mb-2">
-            🤖 {t('chat.title')}
+          <h1 className="text-4xl font-bold text-gray-800 dark:text-white mb-2 flex items-center gap-3">
+            <AnimatedRobot 
+              className="w-10 h-10" 
+              isActive={isLoading || messages.length > 1}
+              status={getRobotStatus()}
+              messageCount={messages.length - 1} // 排除欢迎消息
+            />
+            {t('chat.title')}
           </h1>
           <div className="flex items-center gap-3">
             <LanguageSelector />

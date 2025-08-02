@@ -7,6 +7,31 @@ module.exports = {
   ],
   theme: {
     extend: {
+      animation: {
+        'robot-think': 'robotThink 2s ease-in-out infinite',
+        'robot-excited': 'robotExcited 0.8s ease-in-out infinite',
+        'antenna-glow': 'antennaGlow 2s ease-in-out infinite',
+        'float': 'float 3s ease-in-out infinite',
+      },
+      keyframes: {
+        robotThink: {
+          '0%, 100%': { transform: 'rotate(-2deg)' },
+          '50%': { transform: 'rotate(2deg)' },
+        },
+        robotExcited: {
+          '0%, 100%': { transform: 'scale(1) rotate(0deg)' },
+          '25%': { transform: 'scale(1.05) rotate(-1deg)' },
+          '75%': { transform: 'scale(1.05) rotate(1deg)' },
+        },
+        antennaGlow: {
+          '0%, 100%': { opacity: '0.5', transform: 'scale(1)' },
+          '50%': { opacity: '1', transform: 'scale(1.2)' },
+        },
+        float: {
+          '0%, 100%': { transform: 'translateY(0px)' },
+          '50%': { transform: 'translateY(-3px)' },
+        },
+      },
       scrollbar: {
         thin: {
           size: '6px',
