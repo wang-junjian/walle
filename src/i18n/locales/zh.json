@@ -94,20 +94,9 @@
   },
   "sidebar": {
     "newChat": "新对话",
-    "dictionary": "词典",
     "translator": "智能翻译",
     "settings": "设置",
     "comingSoon": "即将推出"
-  },
-  "dictionary": {
-    "title": "智能词典",
-    "description": "查找单词的定义、发音和例句",
-    "search": "查询",
-    "searching": "查询中...",
-    "searchPlaceholder": "输入要查询的单词...",
-    "example": "例句",
-    "noResults": "未找到相关词汇",
-    "placeholder": "输入单词开始查询"
   },
   "translator": {
     "title": "智能翻译",

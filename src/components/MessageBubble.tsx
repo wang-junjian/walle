@@ -295,7 +295,7 @@ export function MessageBubble({ message, selectedVoice, onRegenerate, onToggleRe
                                 </button>
                               </div>
                               <SyntaxHighlighter
-                                style={isDark ? oneDark as any : oneLight as any}
+                                style={isDark ? oneDark : oneLight}
                                 language={language}
                                 PreTag="div"
                                 customStyle={{

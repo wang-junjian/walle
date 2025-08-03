@@ -1,14 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useImperativeHandle, forwardRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Message, StreamChunk, MessageStats } from '@/types/chat';
 import { MessageList } from './MessageList';
 import { InputArea } from './InputArea';
-import { ModelSelector } from './ModelSelector';
-import { LanguageSelector } from './LanguageSelector';
-import VoiceSelector from './VoiceSelector';
-import { AnimatedRobot } from './AnimatedRobot';
 import { voiceConfig } from '@/config/voice';
 
 interface ChatInterfaceProps {
@@ -16,8 +12,13 @@ interface ChatInterfaceProps {
   onModelChange?: (model: string) => void;
 }
 
-export function ChatInterface({ selectedModel, onModelChange }: ChatInterfaceProps) {
-  const { t, i18n } = useTranslation();
+export interface ChatInterfaceHandle {
+  newChat: () => void;
+}
+
+export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>(
+  ({ selectedModel, onModelChange }, ref) => {
+    const { t, i18n } = useTranslation();
   
   const getWelcomeMessage = (): Message => ({
     id: '1',
@@ -58,6 +59,11 @@ export function ChatInterface({ selectedModel, onModelChange }: ChatInterfacePro
     setIsLoading(false);
     setIsRecording(false);
   };
+
+  // 暴露给父组件的方法
+  useImperativeHandle(ref, () => ({
+    newChat: handleNewChat
+  }));
 
   // 根据当前状态确定机器人状态
   const getRobotStatus = (): 'idle' | 'listening' | 'thinking' | 'speaking' | 'typing' | 'error' => {
@@ -422,4 +428,6 @@ export function ChatInterface({ selectedModel, onModelChange }: ChatInterfacePro
       </div>
     </div>
   );
-}
+});
+
+ChatInterface.displayName = 'ChatInterface';

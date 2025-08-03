@@ -84,7 +84,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
             </h1>
             
             <p className="text-gray-600 dark:text-gray-400 text-center mb-6">
-              We encountered an unexpected error. Don't worry, this happens sometimes.
+              We encountered an unexpected error. Don&apos;t worry, this happens sometimes.
             </p>
 
             {process.env.NODE_ENV === 'development' && this.state.error && (

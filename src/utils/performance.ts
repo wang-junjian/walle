@@ -67,7 +67,12 @@ export class PerformanceMonitor {
    */
   private getMemoryUsage(): number {
     if (typeof window !== 'undefined' && 'memory' in performance) {
-      return (performance as any).memory?.usedJSHeapSize || 0;
+      const performanceWithMemory = performance as Performance & {
+        memory?: {
+          usedJSHeapSize?: number;
+        };
+      };
+      return performanceWithMemory.memory?.usedJSHeapSize || 0;
     }
     return 0;
   }
@@ -95,11 +100,11 @@ export const performanceMonitor = new PerformanceMonitor();
  * Decorator for automatic performance tracking
  */
 export function trackPerformance(operationName?: string) {
-  return function (target: any, propertyKey: string, descriptor: PropertyDescriptor) {
+  return function (target: unknown, propertyKey: string, descriptor: PropertyDescriptor) {
     const originalMethod = descriptor.value;
-    const operationId = operationName || `${target.constructor.name}.${propertyKey}`;
+    const operationId = operationName || `${(target as { constructor: { name: string } }).constructor.name}.${propertyKey}`;
 
-    descriptor.value = async function (...args: any[]) {
+    descriptor.value = async function (this: unknown, ...args: unknown[]) {
       performanceMonitor.start(operationId);
       try {
         const result = await originalMethod.apply(this, args);

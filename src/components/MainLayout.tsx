@@ -1,8 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { ChatInterface } from './ChatInterface';
-import { Dictionary } from './Dictionary';
+import { useState, useRef } from 'react';
+import { ChatInterface, ChatInterfaceHandle } from './ChatInterface';
 import { Translator } from './Translator';
 import { Settings } from './Settings';
 import { Sidebar } from './Sidebar';
@@ -14,18 +13,27 @@ interface MainLayoutProps {
 
 export function MainLayout({ selectedModel, onModelChange }: MainLayoutProps) {
   const [selectedTab, setSelectedTab] = useState('chat');
+  const chatRef = useRef<ChatInterfaceHandle>(null);
+
+  const handleTabChange = (tab: string) => {
+    if (tab === 'chat' && selectedTab === 'chat') {
+      // 如果已经在聊天页面，点击新对话则清空当前聊天
+      chatRef.current?.newChat();
+    } else {
+      setSelectedTab(tab);
+    }
+  };
 
   const renderContent = () => {
     switch (selectedTab) {
       case 'chat':
         return (
           <ChatInterface 
+            ref={chatRef}
             selectedModel={selectedModel} 
             onModelChange={onModelChange}
           />
         );
-      case 'dictionary':
-        return <Dictionary />;
       case 'translator':
         return <Translator />;
       case 'settings':
@@ -38,6 +46,7 @@ export function MainLayout({ selectedModel, onModelChange }: MainLayoutProps) {
       default:
         return (
           <ChatInterface 
+            ref={chatRef}
             selectedModel={selectedModel} 
             onModelChange={onModelChange}
           />
@@ -50,7 +59,7 @@ export function MainLayout({ selectedModel, onModelChange }: MainLayoutProps) {
       {/* Sidebar */}
       <Sidebar 
         selectedTab={selectedTab} 
-        onTabChange={setSelectedTab} 
+        onTabChange={handleTabChange} 
       />
       
       {/* Main Content */}

@@ -94,20 +94,9 @@
   },
   "sidebar": {
     "newChat": "New Chat",
-    "dictionary": "Dictionary",
     "translator": "Smart Translator",
     "settings": "Settings",
     "comingSoon": "Coming Soon"
-  },
-  "dictionary": {
-    "title": "Smart Dictionary",
-    "description": "Look up word definitions, pronunciations, and examples",
-    "search": "Search",
-    "searching": "Searching...",
-    "searchPlaceholder": "Enter a word to look up...",
-    "example": "Example",
-    "noResults": "No results found",
-    "placeholder": "Enter a word to start searching"
   },
   "translator": {
     "title": "Smart Translator",
