@@ -44,7 +44,8 @@
     "cancel": "Cancel",
     "close": "Close",
     "save": "Save",
-    "settings": "Settings"
+    "settings": "Settings",
+    "clear": "Clear"
   },
   "voice": {
     "startRecording": "Start voice recording",
@@ -94,7 +95,7 @@
   "sidebar": {
     "newChat": "New Chat",
     "dictionary": "Dictionary",
-    "translator": "Translator",
+    "translator": "Smart Translator",
     "settings": "Settings",
     "comingSoon": "Coming Soon"
   },
@@ -116,6 +117,7 @@
     "autoDetect": "Auto Detect",
     "translate": "Translate",
     "translating": "Translating...",
+    "connecting": "Connecting...",
     "sourceText": "Source Text",
     "translatedText": "Translated Text",
     "enterText": "Enter text to translate...",

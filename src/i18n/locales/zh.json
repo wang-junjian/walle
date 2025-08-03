@@ -44,7 +44,8 @@
     "cancel": "取消",
     "close": "关闭",
     "save": "保存",
-    "settings": "设置"
+    "settings": "设置",
+    "clear": "清空"
   },
   "voice": {
     "startRecording": "开始语音录制",
@@ -94,7 +95,7 @@
   "sidebar": {
     "newChat": "新对话",
     "dictionary": "词典",
-    "translator": "翻译器",
+    "translator": "智能翻译",
     "settings": "设置",
     "comingSoon": "即将推出"
   },
@@ -116,6 +117,7 @@
     "autoDetect": "自动检测",
     "translate": "翻译",
     "translating": "翻译中...",
+    "connecting": "连接中...",
     "sourceText": "原文",
     "translatedText": "译文",
     "enterText": "输入要翻译的文本...",
