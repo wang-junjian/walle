@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useImperativeHandle, forwardRef } from 'react';
+import { useState, useEffect, useImperativeHandle, forwardRef, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Message, StreamChunk, MessageStats } from '@/types/chat';
 import { MessageList } from './MessageList';
@@ -11,14 +11,17 @@ import { voiceConfig } from '@/config/voice';
 interface ChatInterfaceProps {
   selectedModel?: string;
   onModelChange?: (model: string) => void;
+  onUpdateConversation?: (messages: Message[]) => void;
+  onStartConversation?: (firstMessage: Message) => void;
 }
 
 export interface ChatInterfaceHandle {
   newChat: () => void;
+  loadConversation: (messages: Message[]) => void;
 }
 
 export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>(
-  ({ selectedModel, onModelChange }, ref) => {
+  ({ selectedModel, onModelChange, onUpdateConversation, onStartConversation }, ref) => {
     const { t, i18n } = useTranslation();
   
   const getWelcomeMessage = (): Message => ({
@@ -37,6 +40,10 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
   // 简化：只需要录音状态
   const [isRecording, setIsRecording] = useState(false);
 
+  // 用于跟踪对话更新
+  const lastSavedMessageCount = useRef(0);
+  const shouldUpdateConversation = useRef(false);
+
   // Update welcome message when language changes
   useEffect(() => {
     setMessages(prevMessages => {
@@ -53,17 +60,57 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
     });
   }, [i18n.language, t]);
 
+  // 处理对话更新 - 只在消息完成时更新
+  useEffect(() => {
+    // 只有在以下条件下才更新对话：
+    // 1. 不是加载状态
+    // 2. 消息数量发生了变化
+    // 3. 不是欢迎消息状态
+    // 4. 有实际的对话内容
+    if (!isLoading && 
+        messages.length > lastSavedMessageCount.current && 
+        !(messages.length === 1 && messages[0].id === '1') &&
+        shouldUpdateConversation.current) {
+      
+      // 延迟一下确保状态稳定
+      const timer = setTimeout(() => {
+        console.log('自动更新对话历史:', messages.length, messages);
+        onUpdateConversation?.(messages);
+        lastSavedMessageCount.current = messages.length;
+        shouldUpdateConversation.current = false;
+      }, 100);
+
+      return () => clearTimeout(timer);
+    }
+  }, [messages, isLoading, onUpdateConversation]);
+
   const handleNewChat = () => {
     setMessages([getWelcomeMessage()]);
     setInput('');
     setSelectedFile(null);
     setIsLoading(false);
     setIsRecording(false);
+    // 重置保存状态
+    lastSavedMessageCount.current = 1; // 欢迎消息
+    shouldUpdateConversation.current = false;
+  };
+
+  const handleLoadConversation = (conversationMessages: Message[]) => {
+    console.log('ChatInterface加载对话消息:', conversationMessages.length, conversationMessages);
+    setMessages(conversationMessages);
+    setInput('');
+    setSelectedFile(null);
+    setIsLoading(false);
+    setIsRecording(false);
+    // 重置保存的消息数量
+    lastSavedMessageCount.current = conversationMessages.length;
+    shouldUpdateConversation.current = false;
   };
 
   // 暴露给父组件的方法
   useImperativeHandle(ref, () => ({
-    newChat: handleNewChat
+    newChat: handleNewChat,
+    loadConversation: handleLoadConversation
   }));
 
   // 根据当前状态确定机器人状态
@@ -96,6 +143,9 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
     // 移除当前要重新生成的消息及其之后的所有消息
     setMessages(historyUpToMessage);
     setIsLoading(true);
+    
+    // 标记这次对话需要保存
+    shouldUpdateConversation.current = true;
 
     // 创建新的助手消息用于流式响应
     const newAssistantMessageId = Date.now().toString();
@@ -229,6 +279,8 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
       setMessages(prev => [...prev.slice(0, -1), errorMessage]);
     } finally {
       setIsLoading(false);
+      // 标记需要更新对话
+      shouldUpdateConversation.current = true;
     }
   };
 
@@ -240,6 +292,15 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
 
     // 检查是否是初始状态（只有欢迎消息）
     const isCurrentlyInitialState = messages.length === 1 && messages[0].id === '1';
+
+    // 在更新状态之前，先保存当前的对话历史（用于API调用）
+    const conversationHistory = messages
+      .filter(msg => msg.id !== '1') // 排除欢迎消息
+      .map(msg => ({
+        role: msg.role,
+        content: msg.content,
+        // Don't include attachments in history to keep it clean
+      }));
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -256,6 +317,8 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
     // 如果是初始状态，移除欢迎消息，只保留用户消息
     if (isCurrentlyInitialState) {
       setMessages([userMessage]);
+      // 通知父组件开始新对话
+      onStartConversation?.(userMessage);
     } else {
       setMessages(prev => [...prev, userMessage]);
     }
@@ -263,6 +326,9 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
     setInput('');
     setSelectedFile(null);
     setIsLoading(true);
+    
+    // 标记这次对话需要保存
+    shouldUpdateConversation.current = true;
 
     // Create a placeholder message for streaming response
     const assistantMessageId = (Date.now() + 1).toString();
@@ -288,14 +354,7 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
         formData.append('model', selectedModel);
       }
 
-      // Add conversation history (excluding the current user message and welcome message)
-      const conversationHistory = messages
-        .filter(msg => msg.id !== '1') // 排除欢迎消息
-        .map(msg => ({
-          role: msg.role,
-          content: msg.content,
-          // Don't include attachments in history to keep it clean
-        }));
+      // Add conversation history (使用之前保存的历史，不包含刚发送的用户消息)
       formData.append('history', JSON.stringify(conversationHistory));
 
       const response = await fetch('/api/chat', {
@@ -395,6 +454,8 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
       setMessages(prev => [...prev.slice(0, -1), errorMessage]);
     } finally {
       setIsLoading(false);
+      // 标记需要更新对话
+      shouldUpdateConversation.current = true;
     }
   };
 

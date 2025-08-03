@@ -95,8 +95,19 @@
   "sidebar": {
     "newChat": "New Chat",
     "translator": "Smart Translator",
+    "recentChats": "Recent Chats",
     "settings": "Settings",
     "comingSoon": "Coming Soon"
+  },
+  "conversations": {
+    "noConversations": "No conversations yet",
+    "deleteConversation": "Delete conversation",
+    "confirmDelete": "Are you sure you want to delete this conversation?",
+    "newConversation": "New conversation {{number}}",
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "lastWeek": "Last week",
+    "older": "Older"
   },
   "translator": {
     "title": "Smart Translator",

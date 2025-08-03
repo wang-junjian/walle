@@ -95,8 +95,19 @@
   "sidebar": {
     "newChat": "新对话",
     "translator": "智能翻译",
+    "recentChats": "近期对话",
     "settings": "设置",
     "comingSoon": "即将推出"
+  },
+  "conversations": {
+    "noConversations": "暂无对话记录",
+    "deleteConversation": "删除对话",
+    "confirmDelete": "确定要删除这个对话吗？",
+    "newConversation": "新对话 {{number}}",
+    "today": "今天",
+    "yesterday": "昨天",
+    "lastWeek": "上周",
+    "older": "更早"
   },
   "translator": {
     "title": "智能翻译",

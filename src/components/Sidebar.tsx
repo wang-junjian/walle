@@ -2,10 +2,16 @@
 
 import { useTranslation } from 'react-i18next';
 import { AnimatedRobot } from './AnimatedRobot';
+import { ConversationList } from './ConversationList';
+import { ConversationSummary } from '@/types/conversation';
 
 interface SidebarProps {
   selectedTab: string;
   onTabChange: (tab: string) => void;
+  conversations: ConversationSummary[];
+  currentConversationId: string | null;
+  onSelectConversation: (conversationId: string) => void;
+  onDeleteConversation: (conversationId: string) => void;
 }
 
 interface SidebarItem {
@@ -15,7 +21,14 @@ interface SidebarItem {
   isComingSoon?: boolean;
 }
 
-export function Sidebar({ selectedTab, onTabChange }: SidebarProps) {
+export function Sidebar({ 
+  selectedTab, 
+  onTabChange, 
+  conversations, 
+  currentConversationId, 
+  onSelectConversation,
+  onDeleteConversation 
+}: SidebarProps) {
   const { t } = useTranslation();
 
   const sidebarItems: SidebarItem[] = [
@@ -57,7 +70,7 @@ export function Sidebar({ selectedTab, onTabChange }: SidebarProps) {
       </div>
 
       {/* Navigation Items */}
-      <nav className="flex-1 p-4 space-y-2">
+      <nav className="p-4 space-y-2">
         {sidebarItems.map((item) => (
           <button
             key={item.id}
@@ -90,6 +103,25 @@ export function Sidebar({ selectedTab, onTabChange }: SidebarProps) {
           </button>
         ))}
       </nav>
+
+      {/* Recent Conversations Section */}
+      <div className="border-t border-gray-200 dark:border-gray-700 flex flex-col flex-1 min-h-0">
+        <div className="p-4 pb-2">
+          <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400 flex items-center gap-2">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            {t('sidebar.recentChats')}
+          </h3>
+        </div>
+        
+        <ConversationList
+          conversations={conversations}
+          currentConversationId={currentConversationId}
+          onSelectConversation={onSelectConversation}
+          onDeleteConversation={onDeleteConversation}
+        />
+      </div>
 
       {/* Settings at the bottom */}
       <div className="p-4 border-t border-gray-200 dark:border-gray-700">
