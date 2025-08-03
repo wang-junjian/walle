@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Send, Mic, Image as ImageIcon, X, Loader2 } from 'lucide-react';
 import { VoiceRecorder, transcribeAudio, getWebSpeechLanguage, isSpeechRecognitionSupported } from '@/utils/voice';
@@ -16,6 +16,8 @@ interface InputAreaProps {
   currentLanguage?: string;
   isRecording: boolean;
   setIsRecording: (value: boolean) => void;
+  selectedModel?: string;
+  onModelChange?: (model: string) => void;
 }
 
 export function InputArea({
@@ -28,7 +30,9 @@ export function InputArea({
   isLoading,
   currentLanguage,
   isRecording,
-  setIsRecording
+  setIsRecording,
+  selectedModel,
+  onModelChange
 }: InputAreaProps) {
   const { t } = useTranslation();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -37,12 +41,96 @@ export function InputArea({
   const [interimTranscript, setInterimTranscript] = useState(''); // 只保留这一个临时状态
   const [useRealtimeTranscription, setUseRealtimeTranscription] = useState(true);
   
+  // 模型选择相关状态
+  const [models, setModels] = useState<string[]>([]);
+  const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false);
+  const [isModelsLoading, setIsModelsLoading] = useState(true);
+  const [dropdownWidth, setDropdownWidth] = useState<number>(256); // 默认宽度 w-64
+  
   // 使用 ref 来获取最新的 input 值
   const inputRef = useRef(input);
   inputRef.current = input;
 
   // 简化：只有用户输入 + 临时转录文本
   const displayText = input + (interimTranscript ? (input ? ' ' : '') + interimTranscript : '');
+
+  // 获取模型列表
+  useEffect(() => {
+    fetchModels();
+  }, []);
+
+  // 当模型列表加载完成且没有选中模型时，设置默认模型
+  useEffect(() => {
+    if (!isModelsLoading && models.length > 0 && !selectedModel) {
+      // 使用第一个模型作为默认模型
+      onModelChange?.(models[0]);
+    }
+  }, [isModelsLoading, models, selectedModel, onModelChange]);
+
+  // 点击外部关闭下拉菜单
+  useEffect(() => {
+    const handleClickOutside = () => setIsModelDropdownOpen(false);
+    if (isModelDropdownOpen) {
+      document.addEventListener('click', handleClickOutside);
+      return () => document.removeEventListener('click', handleClickOutside);
+    }
+  }, [isModelDropdownOpen]);
+
+  const fetchModels = async () => {
+    try {
+      const response = await fetch('/api/models');
+      if (response.ok) {
+        const data = await response.json();
+        const modelList = data.models || [];
+        setModels(modelList);
+        
+        // 计算并设置下拉菜单宽度
+        const width = calculateDropdownWidth(modelList);
+        setDropdownWidth(width);
+      }
+    } catch (error) {
+      console.error('Error fetching models:', error);
+    } finally {
+      setIsModelsLoading(false);
+    }
+  };
+
+  const handleModelChange = (model: string) => {
+    onModelChange?.(model);
+    setIsModelDropdownOpen(false);
+  };
+
+  const formatModelName = (model?: string) => {
+    return model?.split('/').pop()?.replace(/-/g, ' ') || model || 'Select Model';
+  };
+
+  // 计算下拉菜单的最佳宽度
+  const calculateDropdownWidth = (modelList: string[]) => {
+    if (modelList.length === 0) return 256; // 默认宽度
+    
+    // 检查是否在浏览器环境中
+    if (typeof window === 'undefined') return 256;
+    
+    // 创建一个临时的测量元素
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+    if (!context) return 256;
+    
+    // 设置与下拉菜单相同的字体样式
+    context.font = '14px ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif';
+    
+    // 计算所有模型名称的最大宽度
+    let maxWidth = 0;
+    modelList.forEach(model => {
+      const formattedName = formatModelName(model);
+      const textWidth = context.measureText(formattedName).width;
+      maxWidth = Math.max(maxWidth, textWidth);
+    });
+    
+    // 添加padding和边距 (px-3 py-2 = 24px horizontal padding + 一些额外空间)
+    const finalWidth = Math.max(256, Math.min(400, maxWidth + 48)); // 最小256px，最大400px
+    return finalWidth;
+  };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -141,6 +229,7 @@ export function InputArea({
 
   return (
     <div className="space-y-3">
+      {/* 已选择文件预览 */}
       {selectedFile && (
         <div className="flex items-center space-x-2 bg-gray-50 dark:bg-gray-700 rounded-lg p-2">
           <ImageIcon className="h-4 w-4 text-gray-500" />
@@ -156,9 +245,11 @@ export function InputArea({
         </div>
       )}
       
-      <div className="flex items-center space-x-2">
-        <div className="flex-1">
-          <div className="relative">
+      {/* 整合式输入框 */}
+      <div className="relative">
+        <div className="bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-2xl shadow-sm hover:shadow-md transition-shadow">
+          {/* 文本输入区域 */}
+          <div className="relative p-2 pb-0">
             <textarea
               value={displayText}
               onChange={(e) => {
@@ -179,11 +270,15 @@ export function InputArea({
               }}
               onKeyPress={onKeyPress}
               placeholder={isRecording ? t('voice.recording') + '...' : t('chat.typeMessage')}
-              className={`w-full resize-none rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:border-gray-400 focus:outline-none focus:ring-1 focus:ring-gray-400 dark:focus:border-gray-500 dark:focus:ring-gray-500 ${
-                isRecording ? 'ring-2 ring-red-200 dark:ring-red-800 border-red-300' : ''
+              className={`w-full resize-none bg-transparent text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 border-none outline-none text-base leading-relaxed ${
+                isRecording ? 'text-red-600' : ''
               }`}
-              rows={2}
-              style={{ minHeight: '80px', maxHeight: '240px' }}
+              rows={3}
+              style={{ 
+                minHeight: '60px',
+                maxHeight: '200px',
+                lineHeight: '1.5'
+              }}
               disabled={isLoading}
               readOnly={isRecording}
             />
@@ -199,53 +294,133 @@ export function InputArea({
             {/* 转录文本标识 */}
             {interimTranscript && !isLoading && (
               <div className="absolute bottom-2 right-2 flex items-center gap-1 text-xs z-10">
-                <span className="bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 px-2 py-1 rounded text-xs animate-pulse">
+                <span className="bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 px-2 py-1 rounded-full text-xs animate-pulse">
                   识别中 {interimTranscript.length}字
                 </span>
               </div>
             )}
           </div>
-        </div>
-        
-        <div className="flex space-x-1">
-          <button
-            onClick={handleImageUpload}
-            className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-lg transition-colors"
-            disabled={isLoading}
-            title={t('chat.uploadImage')}
-          >
-            <ImageIcon className="h-5 w-5" />
-          </button>
           
-          <button
-            onClick={handleVoiceToggle}
-            className={`p-2 rounded-lg transition-colors relative ${
-              isRecording
-                ? 'text-red-500 bg-red-50 dark:bg-red-900/20'
-                : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600'
-            }`}
-            disabled={isLoading || isTranscribing}
-            title={isRecording ? t('voice.stopRecording') : t('voice.startRecording')}
-          >
-            {isTranscribing ? (
-              <Loader2 className="h-5 w-5 animate-spin" />
-            ) : (
-              <Mic className={`h-5 w-5 ${isRecording ? 'animate-pulse' : ''}`} />
-            )}
-          </button>
-          
-          <button
-            onClick={onSendMessage}
-            disabled={!displayText.trim() && !selectedFile || isLoading}
-            className="p-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            title={t('chat.sendMessage')}
-          >
-            {isLoading ? (
-              <Loader2 className="h-5 w-5 animate-spin" />
-            ) : (
-              <Send className="h-5 w-5" />
-            )}
-          </button>
+          {/* 底部功能按钮区域 */}
+          <div className="flex items-center justify-between px-2 pb-1 pt-0 border-gray-100 dark:border-gray-600">
+            {/* 左侧功能按钮组 */}
+            <div className="flex items-center space-x-1">
+              {/* 加号按钮 - 更多功能 */}
+              <button
+                className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-full transition-colors"
+                disabled={isLoading}
+                title="更多功能"
+              >
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+              </button>
+            </div>
+            
+            {/* 右侧操作按钮 */}
+            <div className="flex items-center space-x-2">
+              {/* 模型选择器 */}
+              <div className="relative">
+                {isModelsLoading ? (
+                  <div className="flex items-center gap-2 px-2 py-1.5 text-xs">
+                    <div className="w-3 h-3 bg-gray-300 dark:bg-gray-600 rounded animate-pulse"></div>
+                    <div className="w-16 h-3 bg-gray-300 dark:bg-gray-600 rounded animate-pulse"></div>
+                  </div>
+                ) : (
+                  <>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setIsModelDropdownOpen(!isModelDropdownOpen);
+                      }}
+                      className="flex items-center gap-1 px-2 py-1.5 text-xs text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-full transition-colors"
+                      disabled={isLoading}
+                      title="选择模型"
+                    >
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                      </svg>
+                      <span className="truncate" style={{ maxWidth: `${Math.min(200, dropdownWidth - 60)}px` }}>
+                        {formatModelName(selectedModel)}
+                      </span>
+                      <svg className={`w-3 h-3 transition-transform ${isModelDropdownOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+
+                    {isModelDropdownOpen && (
+                      <div 
+                        className="absolute bottom-full left-0 mb-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50 max-h-48 overflow-y-auto"
+                        style={{ width: `${dropdownWidth}px` }}
+                      >
+                        {models.map((model) => (
+                          <button
+                            key={model}
+                            onClick={() => handleModelChange(model)}
+                            className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 first:rounded-t-lg last:rounded-b-lg transition-colors ${
+                              selectedModel === model 
+                                ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' 
+                                : 'text-gray-700 dark:text-gray-300'
+                            }`}
+                          >
+                            {formatModelName(model)}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+
+              {/* 图片上传按钮 */}
+              <button
+                onClick={handleImageUpload}
+                className="p-2 rounded-full transition-colors text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600"
+                disabled={isLoading}
+                title={t('chat.uploadImage')}
+              >
+                <ImageIcon className="h-5 w-5" />
+              </button>
+
+              {/* 语音按钮 */}
+              <button
+                onClick={handleVoiceToggle}
+                className={`p-2 rounded-full transition-colors relative ${
+                  isRecording
+                    ? 'text-red-500 bg-red-50 dark:bg-red-900/20'
+                    : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600'
+                }`}
+                disabled={isLoading || isTranscribing}
+                title={isRecording ? t('voice.stopRecording') : t('voice.startRecording')}
+              >
+                {isTranscribing ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : (
+                  <Mic className={`h-5 w-5 ${isRecording ? 'animate-pulse' : ''}`} />
+                )}
+              </button>
+              
+              {/* 发送按钮 */}
+              <button
+                onClick={onSendMessage}
+                disabled={!displayText.trim() && !selectedFile || isLoading}
+                className={`p-2 rounded-full transition-colors ${
+                  (!displayText.trim() && !selectedFile) || isLoading
+                    ? 'text-gray-400 bg-gray-100 dark:bg-gray-600 cursor-not-allowed'
+                    : 'text-white bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700'
+                }`}
+                title={t('chat.sendMessage')}
+              >
+                {isLoading ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : (
+                  <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+                  </svg>
+                )}
+              </button>
+            </div>
+          </div>
         </div>
       </div>
       

@@ -406,7 +406,7 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
           />
         </div>
         
-        <div className="border-t border-gray-200 dark:border-gray-700 p-4 flex-shrink-0">
+        <div className="border-t border-gray-200 dark:border-gray-700 p-6 flex-shrink-0">
           <InputArea
             input={input}
             setInput={setInput}
@@ -418,8 +418,10 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
             currentLanguage={i18n.language}
             isRecording={isRecording}
             setIsRecording={setIsRecording}
+            selectedModel={selectedModel}
+            onModelChange={onModelChange}
           />
-          <div className="text-center mt-2">
+          <div className="text-center mt-3">
             <p className="text-xs text-gray-500 dark:text-gray-400">
               {t('chat.aiDisclaimer')}
             </p>
