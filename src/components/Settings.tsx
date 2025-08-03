@@ -25,12 +25,23 @@ export function Settings({ selectedModel, onModelChange }: SettingsProps) {
     const savedAutoSave = localStorage.getItem('autoSave');
     const savedSoundEnabled = localStorage.getItem('soundEnabled');
     const savedVoice = localStorage.getItem('selectedVoice');
+    const savedModel = localStorage.getItem('selectedModel');
 
     if (savedDarkMode) setDarkMode(JSON.parse(savedDarkMode));
     if (savedAutoSave) setAutoSave(JSON.parse(savedAutoSave));
     if (savedSoundEnabled) setSoundEnabled(JSON.parse(savedSoundEnabled));
     if (savedVoice) setSelectedVoice(savedVoice);
-  }, []);
+    if (savedModel && onModelChange) {
+      onModelChange(savedModel);
+    }
+  }, [onModelChange]);
+
+  // Auto-save selectedModel to localStorage when it changes
+  useEffect(() => {
+    if (selectedModel) {
+      localStorage.setItem('selectedModel', selectedModel);
+    }
+  }, [selectedModel]);
 
   // Save settings to localStorage
   const saveSettings = () => {
@@ -38,6 +49,9 @@ export function Settings({ selectedModel, onModelChange }: SettingsProps) {
     localStorage.setItem('autoSave', JSON.stringify(autoSave));
     localStorage.setItem('soundEnabled', JSON.stringify(soundEnabled));
     localStorage.setItem('selectedVoice', selectedVoice);
+    if (selectedModel) {
+      localStorage.setItem('selectedModel', selectedModel);
+    }
   };
 
   const handleDarkModeToggle = () => {
@@ -137,7 +151,10 @@ export function Settings({ selectedModel, onModelChange }: SettingsProps) {
                 {t('chat.modelSelector')}
               </label>
               {onModelChange && (
-                <ModelSelector onModelChange={onModelChange} />
+                <ModelSelector 
+                  selectedModel={selectedModel}
+                  onModelChange={onModelChange} 
+                />
               )}
             </div>
             <div>

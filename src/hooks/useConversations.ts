@@ -15,11 +15,30 @@ export function useConversations() {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
       try {
-        const parsedConversations = JSON.parse(stored).map((conv: any) => ({
+        const parsedConversations = JSON.parse(stored).map((conv: {
+          id: string;
+          title: string;
+          createdAt: string;
+          updatedAt: string;
+          messages: Array<{
+            id: string;
+            content: string;
+            role: string;
+            timestamp: string;
+            [key: string]: unknown;
+          }>;
+          [key: string]: unknown;
+        }) => ({
           ...conv,
           createdAt: new Date(conv.createdAt),
           updatedAt: new Date(conv.updatedAt),
-          messages: conv.messages.map((msg: any) => ({
+          messages: conv.messages.map((msg: {
+            id: string;
+            content: string;
+            role: string;
+            timestamp: string;
+            [key: string]: unknown;
+          }) => ({
             ...msg,
             timestamp: new Date(msg.timestamp)
           }))

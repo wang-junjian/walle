@@ -1,23 +1,49 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 
 interface ModelSelectorProps {
+  selectedModel?: string;
   onModelChange: (model: string) => void;
 }
 
-export function ModelSelector({ onModelChange }: ModelSelectorProps) {
+export function ModelSelector({ selectedModel: propSelectedModel, onModelChange }: ModelSelectorProps) {
   const { t } = useTranslation();
   const [models, setModels] = useState<string[]>([]);
   const [selectedModel, setSelectedModel] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
   const [isOpen, setIsOpen] = useState(false);
 
+  // Update local selectedModel when prop changes
+  useEffect(() => {
+    if (propSelectedModel) {
+      setSelectedModel(propSelectedModel);
+    }
+  }, [propSelectedModel]);
+
+  const fetchModels = useCallback(async () => {
+    try {
+      const response = await fetch('/api/models');
+      if (response.ok) {
+        const data = await response.json();
+        setModels(data.models || []);
+        // 只有当没有从props传递selectedModel时，才使用API返回的currentModel
+        if (!propSelectedModel) {
+          setSelectedModel(data.currentModel || '');
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching models:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [propSelectedModel]);
+
   useEffect(() => {
     // Fetch available models from the API
     fetchModels();
-  }, []);
+  }, [fetchModels]);
 
   useEffect(() => {
     const handleClickOutside = () => setIsOpen(false);
@@ -26,21 +52,6 @@ export function ModelSelector({ onModelChange }: ModelSelectorProps) {
       return () => document.removeEventListener('click', handleClickOutside);
     }
   }, [isOpen]);
-
-  const fetchModels = async () => {
-    try {
-      const response = await fetch('/api/models');
-      if (response.ok) {
-        const data = await response.json();
-        setModels(data.models || []);
-        setSelectedModel(data.currentModel || '');
-      }
-    } catch (error) {
-      console.error('Error fetching models:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const handleModelChange = async (model: string) => {
     setSelectedModel(model);

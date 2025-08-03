@@ -1,8 +1,8 @@
 'use client';
 
-import { useRef, useState, useEffect } from 'react';
+import { useRef, useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Send, Mic, Image as ImageIcon, X, Loader2 } from 'lucide-react';
+import { Mic, Image as ImageIcon, X, Loader2 } from 'lucide-react';
 import { VoiceRecorder, transcribeAudio, getWebSpeechLanguage, isSpeechRecognitionSupported } from '@/utils/voice';
 
 interface InputAreaProps {
@@ -55,57 +55,12 @@ export function InputArea({
   const displayText = input + (interimTranscript ? (input ? ' ' : '') + interimTranscript : '');
 
   // 获取模型列表
-  useEffect(() => {
-    fetchModels();
+  const formatModelName = useCallback((model?: string) => {
+    return model?.split('/').pop()?.replace(/-/g, ' ') || model || 'Select Model';
   }, []);
 
-  // 当模型列表加载完成且没有选中模型时，设置默认模型
-  useEffect(() => {
-    if (!isModelsLoading && models.length > 0 && !selectedModel) {
-      // 使用第一个模型作为默认模型
-      onModelChange?.(models[0]);
-    }
-  }, [isModelsLoading, models, selectedModel, onModelChange]);
-
-  // 点击外部关闭下拉菜单
-  useEffect(() => {
-    const handleClickOutside = () => setIsModelDropdownOpen(false);
-    if (isModelDropdownOpen) {
-      document.addEventListener('click', handleClickOutside);
-      return () => document.removeEventListener('click', handleClickOutside);
-    }
-  }, [isModelDropdownOpen]);
-
-  const fetchModels = async () => {
-    try {
-      const response = await fetch('/api/models');
-      if (response.ok) {
-        const data = await response.json();
-        const modelList = data.models || [];
-        setModels(modelList);
-        
-        // 计算并设置下拉菜单宽度
-        const width = calculateDropdownWidth(modelList);
-        setDropdownWidth(width);
-      }
-    } catch (error) {
-      console.error('Error fetching models:', error);
-    } finally {
-      setIsModelsLoading(false);
-    }
-  };
-
-  const handleModelChange = (model: string) => {
-    onModelChange?.(model);
-    setIsModelDropdownOpen(false);
-  };
-
-  const formatModelName = (model?: string) => {
-    return model?.split('/').pop()?.replace(/-/g, ' ') || model || 'Select Model';
-  };
-
   // 计算下拉菜单的最佳宽度
-  const calculateDropdownWidth = (modelList: string[]) => {
+  const calculateDropdownWidth = useCallback((modelList: string[]) => {
     if (modelList.length === 0) return 256; // 默认宽度
     
     // 检查是否在浏览器环境中
@@ -130,7 +85,59 @@ export function InputArea({
     // 添加padding和边距 (px-3 py-2 = 24px horizontal padding + 一些额外空间)
     const finalWidth = Math.max(256, Math.min(400, maxWidth + 48)); // 最小256px，最大400px
     return finalWidth;
-  };
+  }, [formatModelName]);
+
+  const fetchModels = useCallback(async () => {
+    try {
+      const response = await fetch('/api/models');
+      if (response.ok) {
+        const data = await response.json();
+        const modelList = data.models || [];
+        setModels(modelList);
+        
+        // 计算并设置下拉菜单宽度
+        const width = calculateDropdownWidth(modelList);
+        setDropdownWidth(width);
+      }
+    } catch (error) {
+      console.error('Error fetching models:', error);
+    } finally {
+      setIsModelsLoading(false);
+    }
+  }, [calculateDropdownWidth]);
+
+  const handleModelChange = useCallback((model: string) => {
+    onModelChange?.(model);
+    setIsModelDropdownOpen(false);
+  }, [onModelChange]);
+
+  useEffect(() => {
+    fetchModels();
+  }, [fetchModels]);
+
+  // 当模型列表加载完成且没有选中模型时，设置默认模型
+  useEffect(() => {
+    if (!isModelsLoading && models.length > 0 && !selectedModel) {
+      // 首先检查localStorage中是否有保存的模型
+      const savedModel = localStorage.getItem('selectedModel');
+      if (savedModel && models.includes(savedModel)) {
+        // 如果localStorage中有保存的模型且在模型列表中，使用保存的模型
+        onModelChange?.(savedModel);
+      } else {
+        // 否则使用第一个模型作为默认模型
+        onModelChange?.(models[0]);
+      }
+    }
+  }, [isModelsLoading, models, selectedModel, onModelChange]);
+
+  // 点击外部关闭下拉菜单
+  useEffect(() => {
+    const handleClickOutside = () => setIsModelDropdownOpen(false);
+    if (isModelDropdownOpen) {
+      document.addEventListener('click', handleClickOutside);
+      return () => document.removeEventListener('click', handleClickOutside);
+    }
+  }, [isModelDropdownOpen]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

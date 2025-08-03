@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { ChatInterface, ChatInterfaceHandle } from './ChatInterface';
 import { Translator } from './Translator';
 import { Settings } from './Settings';
