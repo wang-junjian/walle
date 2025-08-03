@@ -64,8 +64,8 @@ export function MainLayout({ selectedModel, onModelChange }: MainLayoutProps) {
       
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-h-0">
-        <main className="flex-1 flex justify-center min-h-0 p-4">
-          <div className="w-full max-w-none h-full">
+        <main className="flex-1 min-h-0">
+          <div className="w-full h-full">
             {renderContent()}
           </div>
         </main>

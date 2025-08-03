@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { Message, StreamChunk, MessageStats } from '@/types/chat';
 import { MessageList } from './MessageList';
 import { InputArea } from './InputArea';
+import { AnimatedRobot } from './AnimatedRobot';
 import { voiceConfig } from '@/config/voice';
 
 interface ChatInterfaceProps {
@@ -237,6 +238,9 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
     
     if (!fullMessage && !selectedFile) return;
 
+    // 检查是否是初始状态（只有欢迎消息）
+    const isCurrentlyInitialState = messages.length === 1 && messages[0].id === '1';
+
     const userMessage: Message = {
       id: Date.now().toString(),
       content: fullMessage,
@@ -249,7 +253,13 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
       }] : undefined,
     };
 
-    setMessages(prev => [...prev, userMessage]);
+    // 如果是初始状态，移除欢迎消息，只保留用户消息
+    if (isCurrentlyInitialState) {
+      setMessages([userMessage]);
+    } else {
+      setMessages(prev => [...prev, userMessage]);
+    }
+    
     setInput('');
     setSelectedFile(null);
     setIsLoading(true);
@@ -278,12 +288,14 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
         formData.append('model', selectedModel);
       }
 
-      // Add conversation history (excluding the current user message that was just added)
-      const conversationHistory = messages.map(msg => ({
-        role: msg.role,
-        content: msg.content,
-        // Don't include attachments in history to keep it clean
-      }));
+      // Add conversation history (excluding the current user message and welcome message)
+      const conversationHistory = messages
+        .filter(msg => msg.id !== '1') // 排除欢迎消息
+        .map(msg => ({
+          role: msg.role,
+          content: msg.content,
+          // Don't include attachments in history to keep it clean
+        }));
       formData.append('history', JSON.stringify(conversationHistory));
 
       const response = await fetch('/api/chat', {
@@ -393,20 +405,85 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
     }
   };
 
-  return (
-    <div className="h-full flex justify-center">
-      <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden h-full flex flex-col w-full max-w-5xl">
-        <div className="flex-1 min-h-0 overflow-hidden">
-          <MessageList 
-            messages={messages} 
-            isLoading={isLoading} 
-            selectedVoice={selectedVoice}
-            onRegenerate={handleRegenerate}
-            onToggleReasoning={handleToggleReasoning}
-          />
+  // 判断是否只有欢迎消息（初始状态）
+  const isInitialState = messages.length === 1 && messages[0].id === '1';
+
+  if (isInitialState) {
+    // 初始界面：只显示机器人图像居中
+    return (
+      <div className="h-full flex flex-col bg-white dark:bg-gray-800">
+        {/* 机器人图像区域 */}
+        <div className="flex-1 flex items-center justify-center">
+          <div className="flex flex-col items-center space-y-8">
+            {/* 机器人图像 */}
+            <div className="relative">
+              <div className="w-32 h-32 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center shadow-2xl animate-pulse-slow">
+                <AnimatedRobot 
+                  className="w-16 h-16 text-white" 
+                  status={getRobotStatus()}
+                  isActive={true}
+                />
+              </div>
+              {/* 装饰性光环 */}
+              <div className="absolute inset-0 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 opacity-20 scale-110 animate-ping"></div>
+            </div>
+            
+            {/* 欢迎文字 */}
+            <div className="text-center space-y-2">
+              <h1 className="text-2xl font-bold text-gray-800 dark:text-white">
+                {t('chat.welcome')}
+              </h1>
+            </div>
+          </div>
         </div>
         
-        <div className="border-t border-gray-200 dark:border-gray-700 p-6 flex-shrink-0">
+        {/* 输入区域 - 固定在底部 */}
+        <div className="flex justify-center p-4 flex-shrink-0 bg-white dark:bg-gray-800">
+          <div className="w-full max-w-5xl">
+            <InputArea
+              input={input}
+              setInput={setInput}
+              selectedFile={selectedFile}
+              setSelectedFile={setSelectedFile}
+              onSendMessage={handleSendMessage}
+              onKeyPress={handleKeyPress}
+              isLoading={isLoading}
+              currentLanguage={i18n.language}
+              isRecording={isRecording}
+              setIsRecording={setIsRecording}
+              selectedModel={selectedModel}
+              onModelChange={onModelChange}
+            />
+            <div className="text-center mt-3">
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                {t('chat.aiDisclaimer')}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 聊天状态：消息列表 + 输入框，滚动条在右侧
+  return (
+    <div className="h-full flex flex-col bg-white dark:bg-gray-800">
+      <div className="flex-1 overflow-y-auto">
+        <div className="min-h-full flex justify-center">
+          <div className="w-full max-w-5xl p-4">
+            <MessageList 
+              messages={messages} 
+              isLoading={isLoading} 
+              selectedVoice={selectedVoice}
+              onRegenerate={handleRegenerate}
+              onToggleReasoning={handleToggleReasoning}
+            />
+          </div>
+        </div>
+      </div>
+      
+      <div className="flex justify-center p-4 flex-shrink-0 bg-white dark:bg-gray-800">
+        <div className="w-full max-w-5xl">
           <InputArea
             input={input}
             setInput={setInput}
