@@ -388,81 +388,36 @@ export function ChatInterface({ selectedModel, onModelChange }: ChatInterfacePro
   };
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl overflow-hidden h-full flex flex-col">
-      {/* Chat Header with New Chat Button */}
-      <div className="border-b border-gray-200 dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-750 flex-shrink-0">
-        <div className="flex justify-between items-center">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={handleNewChat}
-              className="flex items-center gap-2 px-5 py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors duration-200 font-medium text-base"
-            >
-              <svg 
-                className="w-5 h-5" 
-                fill="none" 
-                stroke="currentColor" 
-                viewBox="0 0 24 24"
-              >
-                <path 
-                  strokeLinecap="round" 
-                  strokeLinejoin="round" 
-                  strokeWidth={2} 
-                  d="M12 4v16m8-8H4" 
-                />
-              </svg>
-              {t('chat.newChat')}
-            </button>
-            <h1 className="text-4xl font-bold text-gray-800 dark:text-white mb-2 flex items-center gap-3">
-              <AnimatedRobot 
-                className="w-10 h-10" 
-                isActive={isLoading || messages.length > 1}
-                status={getRobotStatus()}
-                messageCount={messages.length - 1} // 排除欢迎消息
-              />
-              {t('chat.title')}
-            </h1>
-          </div>
-
-          <div className="flex items-center gap-3">
-            {onModelChange && (
-              <ModelSelector onModelChange={onModelChange} />
-            )}
-            <VoiceSelector 
-              value={selectedVoice} 
-              onChange={setSelectedVoice} 
-            />
-            <LanguageSelector />
-          </div>
+    <div className="h-full flex justify-center">
+      <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden h-full flex flex-col w-full max-w-5xl">
+        <div className="flex-1 min-h-0 overflow-hidden">
+          <MessageList 
+            messages={messages} 
+            isLoading={isLoading} 
+            selectedVoice={selectedVoice}
+            onRegenerate={handleRegenerate}
+            onToggleReasoning={handleToggleReasoning}
+          />
         </div>
-      </div>
-
-      <div className="flex-1 min-h-0 overflow-hidden">
-        <MessageList 
-          messages={messages} 
-          isLoading={isLoading} 
-          selectedVoice={selectedVoice}
-          onRegenerate={handleRegenerate}
-          onToggleReasoning={handleToggleReasoning}
-        />
-      </div>
-      
-      <div className="border-t border-gray-200 dark:border-gray-700 p-4 flex-shrink-0">
-        <InputArea
-          input={input}
-          setInput={setInput}
-          selectedFile={selectedFile}
-          setSelectedFile={setSelectedFile}
-          onSendMessage={handleSendMessage}
-          onKeyPress={handleKeyPress}
-          isLoading={isLoading}
-          currentLanguage={i18n.language}
-          isRecording={isRecording}
-          setIsRecording={setIsRecording}
-        />
-        <div className="text-center">
-          <p className="text-xs text-gray-500 dark:text-gray-400">
-            {t('chat.aiDisclaimer')}
-          </p>
+        
+        <div className="border-t border-gray-200 dark:border-gray-700 p-4 flex-shrink-0">
+          <InputArea
+            input={input}
+            setInput={setInput}
+            selectedFile={selectedFile}
+            setSelectedFile={setSelectedFile}
+            onSendMessage={handleSendMessage}
+            onKeyPress={handleKeyPress}
+            isLoading={isLoading}
+            currentLanguage={i18n.language}
+            isRecording={isRecording}
+            setIsRecording={setIsRecording}
+          />
+          <div className="text-center mt-2">
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              {t('chat.aiDisclaimer')}
+            </p>
+          </div>
         </div>
       </div>
     </div>

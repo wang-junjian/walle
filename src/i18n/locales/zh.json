@@ -28,7 +28,16 @@
   },
   "languages": {
     "en": "英文",
-    "zh": "中文"
+    "zh": "中文",
+    "ja": "日文",
+    "ko": "韩文", 
+    "fr": "法文",
+    "de": "德文",
+    "es": "西班牙文",
+    "it": "意大利文",
+    "pt": "葡萄牙文",
+    "ru": "俄文",
+    "ar": "阿拉伯文"
   },
   "common": {
     "send": "发送",
@@ -81,5 +90,59 @@
       "robotAvatar": "Walle机器人头像",
       "clickToInteract": "点击与Walle互动"
     }
+  },
+  "sidebar": {
+    "newChat": "新对话",
+    "dictionary": "词典",
+    "translator": "翻译器",
+    "settings": "设置",
+    "comingSoon": "即将推出"
+  },
+  "dictionary": {
+    "title": "智能词典",
+    "description": "查找单词的定义、发音和例句",
+    "search": "查询",
+    "searching": "查询中...",
+    "searchPlaceholder": "输入要查询的单词...",
+    "example": "例句",
+    "noResults": "未找到相关词汇",
+    "placeholder": "输入单词开始查询"
+  },
+  "translator": {
+    "title": "智能翻译",
+    "description": "支持多语言的智能翻译服务",
+    "from": "源语言",
+    "to": "目标语言",
+    "autoDetect": "自动检测",
+    "translate": "翻译",
+    "translating": "翻译中...",
+    "sourceText": "原文",
+    "translatedText": "译文",
+    "enterText": "输入要翻译的文本...",
+    "placeholder": "翻译结果将显示在这里"
+  },
+  "settings": {
+    "title": "设置",
+    "description": "个性化您的Walle体验",
+    "aiSettings": "AI设置",
+    "appearance": "外观设置",
+    "general": "通用设置",
+    "dataManagement": "数据管理",
+    "about": "关于",
+    "darkMode": "深色模式",
+    "darkModeDescription": "切换应用程序外观主题",
+    "autoSave": "自动保存",
+    "autoSaveDescription": "自动保存对话历史",
+    "soundEnabled": "声音提示",
+    "soundEnabledDescription": "启用声音通知和提示",
+    "saveSettings": "保存设置",
+    "exportData": "导出数据",
+    "importData": "导入数据",
+    "resetSettings": "重置设置",
+    "resetConfirm": "确定要重置所有设置吗？此操作不可撤销。",
+    "importError": "导入设置失败，请检查文件格式",
+    "version": "版本",
+    "buildDate": "构建日期",
+    "license": "许可证"
   }
 }

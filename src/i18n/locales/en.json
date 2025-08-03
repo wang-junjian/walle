@@ -28,7 +28,16 @@
   },
   "languages": {
     "en": "English",
-    "zh": "Chinese"
+    "zh": "Chinese",
+    "ja": "Japanese",
+    "ko": "Korean",
+    "fr": "French", 
+    "de": "German",
+    "es": "Spanish",
+    "it": "Italian",
+    "pt": "Portuguese",
+    "ru": "Russian",
+    "ar": "Arabic"
   },
   "common": {
     "send": "Send",
@@ -81,5 +90,59 @@
       "robotAvatar": "Walle robot avatar",
       "clickToInteract": "Click to interact with Walle"
     }
+  },
+  "sidebar": {
+    "newChat": "New Chat",
+    "dictionary": "Dictionary",
+    "translator": "Translator",
+    "settings": "Settings",
+    "comingSoon": "Coming Soon"
+  },
+  "dictionary": {
+    "title": "Smart Dictionary",
+    "description": "Look up word definitions, pronunciations, and examples",
+    "search": "Search",
+    "searching": "Searching...",
+    "searchPlaceholder": "Enter a word to look up...",
+    "example": "Example",
+    "noResults": "No results found",
+    "placeholder": "Enter a word to start searching"
+  },
+  "translator": {
+    "title": "Smart Translator",
+    "description": "Intelligent translation service supporting multiple languages",
+    "from": "From",
+    "to": "To",
+    "autoDetect": "Auto Detect",
+    "translate": "Translate",
+    "translating": "Translating...",
+    "sourceText": "Source Text",
+    "translatedText": "Translated Text",
+    "enterText": "Enter text to translate...",
+    "placeholder": "Translation will appear here"
+  },
+  "settings": {
+    "title": "Settings",
+    "description": "Personalize your Walle experience",
+    "aiSettings": "AI Settings",
+    "appearance": "Appearance",
+    "general": "General",
+    "dataManagement": "Data Management",
+    "about": "About",
+    "darkMode": "Dark Mode",
+    "darkModeDescription": "Toggle application theme",
+    "autoSave": "Auto Save",
+    "autoSaveDescription": "Automatically save conversation history",
+    "soundEnabled": "Sound Notifications",
+    "soundEnabledDescription": "Enable sound notifications and alerts",
+    "saveSettings": "Save Settings",
+    "exportData": "Export Data",
+    "importData": "Import Data",
+    "resetSettings": "Reset Settings",
+    "resetConfirm": "Are you sure you want to reset all settings? This action cannot be undone.",
+    "importError": "Failed to import settings, please check file format",
+    "version": "Version",
+    "buildDate": "Build Date",
+    "license": "License"
   }
 }

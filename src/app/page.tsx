@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ChatInterface } from '@/components/ChatInterface';
+import { MainLayout } from '@/components/MainLayout';
 
 export default function Home() {
   const [selectedModel, setSelectedModel] = useState<string>('');
@@ -13,17 +13,9 @@ export default function Home() {
   };
 
   return (
-    <div className="w-screen h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 flex flex-col overflow-hidden">
-      <div className="flex-1 flex flex-col p-2 max-w-none min-h-0">
-        <main className="flex-1 flex justify-center min-h-0">
-          <div className="w-full max-w-4xl h-full">
-            <ChatInterface 
-              selectedModel={selectedModel} 
-              onModelChange={handleModelChange}
-            />
-          </div>
-        </main>
-      </div>
-    </div>
+    <MainLayout 
+      selectedModel={selectedModel} 
+      onModelChange={handleModelChange}
+    />
   );
 }
