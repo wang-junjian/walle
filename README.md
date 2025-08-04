@@ -8,6 +8,10 @@
 
 A cutting-edge, multi-modal AI assistant built with Next.js 15, featuring advanced capabilities for text, voice, and image interactions. Designed with modern web standards and optimal user experience in mind.
 
+![](docs/assets/walle-screenshot.png)
+
+![](docs/assets/walle-chat-screenshot.png)
+
 ## ✨ Core Features
 
 ### 🧠 Advanced AI Capabilities

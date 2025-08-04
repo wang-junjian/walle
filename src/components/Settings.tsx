@@ -311,7 +311,7 @@ export function Settings({ selectedModel, onModelChange }: SettingsProps) {
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600 dark:text-gray-400">{t('settings.buildDate')}:</span>
-                <span className="text-gray-800 dark:text-white">2024-08-03</span>
+                <span className="text-gray-800 dark:text-white">2025-08-01</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600 dark:text-gray-400">{t('settings.license')}:</span>
