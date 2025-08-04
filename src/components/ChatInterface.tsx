@@ -4,7 +4,7 @@ import { useState, useEffect, useImperativeHandle, forwardRef, useRef } from 're
 import { useTranslation } from 'react-i18next';
 import { Message, StreamChunk, MessageStats } from '@/types/chat';
 import { MessageList } from './MessageList';
-import { InputArea } from './InputArea';
+import { InputArea, InputAreaRef } from './InputArea';
 import { AnimatedRobot } from './AnimatedRobot';
 import { voiceConfig } from '@/config/voice';
 
@@ -43,22 +43,41 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
   // 用于跟踪对话更新
   const lastSavedMessageCount = useRef(0);
   const shouldUpdateConversation = useRef(false);
+  
+  // InputArea 的 ref
+  const inputAreaRef = useRef<InputAreaRef>(null);
 
-  // Update welcome message when language changes
+    // Update welcome message when language changes
   useEffect(() => {
     setMessages(prevMessages => {
       if (prevMessages.length > 0 && prevMessages[0].id === '1') {
-        // Update the welcome message
         const updatedMessages = [...prevMessages];
-        updatedMessages[0] = {
-          ...updatedMessages[0],
-          content: t('chat.welcome'),
-        };
+        updatedMessages[0] = getWelcomeMessage();
         return updatedMessages;
       }
       return prevMessages;
     });
-  }, [i18n.language, t]);
+  }, [t]);
+  
+  // 监听 isLoading 变化，当消息发送完成时聚焦输入框
+  useEffect(() => {
+    if (!isLoading) {
+      // 消息发送完成，聚焦输入框
+      setTimeout(() => {
+        inputAreaRef.current?.focus();
+      }, 300); // 稍微长一点的延迟确保UI更新完成
+    }
+  }, [isLoading]);
+  
+  // 组件挂载时聚焦输入框（处理页面初始加载）
+  useEffect(() => {
+    // 延迟聚焦，确保组件完全渲染
+    const timer = setTimeout(() => {
+      inputAreaRef.current?.focus();
+    }, 500);
+    
+    return () => clearTimeout(timer);
+  }, []);
 
   // 处理对话更新 - 只在消息完成时更新
   useEffect(() => {
@@ -93,6 +112,11 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
     // 重置保存状态
     lastSavedMessageCount.current = 1; // 欢迎消息
     shouldUpdateConversation.current = false;
+    
+    // 聚焦输入框
+    setTimeout(() => {
+      inputAreaRef.current?.focus();
+    }, 100);
   };
 
   const handleLoadConversation = (conversationMessages: Message[]) => {
@@ -105,6 +129,11 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
     // 重置保存的消息数量
     lastSavedMessageCount.current = conversationMessages.length;
     shouldUpdateConversation.current = false;
+    
+    // 聚焦输入框
+    setTimeout(() => {
+      inputAreaRef.current?.focus();
+    }, 100);
   };
 
   // 暴露给父组件的方法
@@ -502,6 +531,7 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
         <div className="flex justify-center p-4 flex-shrink-0 bg-white dark:bg-gray-800">
           <div className="w-full max-w-5xl">
             <InputArea
+              ref={inputAreaRef}
               input={input}
               setInput={setInput}
               selectedFile={selectedFile}
@@ -546,6 +576,7 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
       <div className="flex justify-center p-4 flex-shrink-0 bg-white dark:bg-gray-800">
         <div className="w-full max-w-5xl">
           <InputArea
+            ref={inputAreaRef}
             input={input}
             setInput={setInput}
             selectedFile={selectedFile}

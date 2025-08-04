@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState, useEffect, useCallback } from 'react';
+import { useRef, useState, useEffect, useCallback, forwardRef, useImperativeHandle } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Mic, Image as ImageIcon, X, Loader2 } from 'lucide-react';
 import { VoiceRecorder, transcribeAudio, getWebSpeechLanguage, isSpeechRecognitionSupported } from '@/utils/voice';
@@ -20,7 +20,11 @@ interface InputAreaProps {
   onModelChange?: (model: string) => void;
 }
 
-export function InputArea({
+export interface InputAreaRef {
+  focus: () => void;
+}
+
+export const InputArea = forwardRef<InputAreaRef, InputAreaProps>(({
   input,
   setInput,
   selectedFile,
@@ -33,9 +37,10 @@ export function InputArea({
   setIsRecording,
   selectedModel,
   onModelChange
-}: InputAreaProps) {
+}, ref) => {
   const { t } = useTranslation();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [voiceRecorder] = useState(() => new VoiceRecorder());
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [interimTranscript, setInterimTranscript] = useState(''); // 只保留这一个临时状态
@@ -46,6 +51,37 @@ export function InputArea({
   const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false);
   const [isModelsLoading, setIsModelsLoading] = useState(true);
   const [dropdownWidth, setDropdownWidth] = useState<number>(256); // 默认宽度 w-64
+  
+  // 暴露 focus 方法给父组件
+  useImperativeHandle(ref, () => ({
+    focus: () => {
+      textareaRef.current?.focus();
+    }
+  }), []);
+  
+  // 处理按键事件，确保发送后重新聚焦
+  const handleKeyPress = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      onSendMessage();
+      // 使用较长的延迟确保消息发送流程完成后再聚焦
+      setTimeout(() => {
+        textareaRef.current?.focus();
+      }, 200);
+    } else {
+      // 对于其他按键，调用原来的处理器
+      onKeyPress(e);
+    }
+  }, [onSendMessage, onKeyPress]);
+  
+  // 处理发送按钮点击，确保发送后重新聚焦
+  const handleSendClick = useCallback(() => {
+    onSendMessage();
+    // 使用较长的延迟确保消息发送流程完成后再聚焦
+    setTimeout(() => {
+      textareaRef.current?.focus();
+    }, 200);
+  }, [onSendMessage]);
   
   // 使用 ref 来获取最新的 input 值
   const inputRef = useRef(input);
@@ -258,6 +294,7 @@ export function InputArea({
           {/* 文本输入区域 */}
           <div className="relative p-2 pb-0">
             <textarea
+              ref={textareaRef}
               value={displayText}
               onChange={(e) => {
                 const newValue = e.target.value;
@@ -275,7 +312,7 @@ export function InputArea({
                   setInterimTranscript('');
                 }
               }}
-              onKeyPress={onKeyPress}
+              onKeyPress={handleKeyPress}
               placeholder={isRecording ? t('voice.recording') + '...' : t('chat.typeMessage')}
               className={`w-full resize-none bg-transparent text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 border-none outline-none text-base leading-relaxed ${
                 isRecording ? 'text-red-600' : ''
@@ -409,7 +446,7 @@ export function InputArea({
               
               {/* 发送按钮 */}
               <button
-                onClick={onSendMessage}
+                onClick={handleSendClick}
                 disabled={!displayText.trim() && !selectedFile || isLoading}
                 className={`p-2 rounded-full transition-colors ${
                   (!displayText.trim() && !selectedFile) || isLoading
@@ -440,4 +477,6 @@ export function InputArea({
       />
     </div>
   );
-}
+});
+
+InputArea.displayName = 'InputArea';
