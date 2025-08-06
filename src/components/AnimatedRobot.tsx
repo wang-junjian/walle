@@ -12,7 +12,7 @@ interface AnimatedRobotProps {
 
 export function AnimatedRobot({ 
   className = "w-8 h-8", 
-  isActive = false, 
+  isActive: _isActive = false, // Prefixed with _ to indicate intentionally unused
   status = 'idle',
   messageCount = 0 
 }: AnimatedRobotProps) {

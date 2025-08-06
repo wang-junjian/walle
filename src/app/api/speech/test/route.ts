@@ -1,14 +1,24 @@
 import { NextResponse } from 'next/server';
 import OpenAI from 'openai';
-import { voiceConfig } from '@/config/voice';
+import { getConfigManager } from '@/config/config-manager';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-  baseURL: process.env.OPENAI_BASE_URL,
-});
+// 内联语音配置以避免模块导入问题
+const voiceConfig = {
+  ttsModel: 'tts-1',
+  defaultVoice: 'anna'
+};
 
 export async function GET() {
   try {
+    const configManager = getConfigManager();
+    const speechConfig = configManager.getSpeechConfig();
+    
+    // 初始化 OpenAI 客户端
+    const openai = new OpenAI({
+      apiKey: speechConfig.textToSpeech?.apiKey,
+      baseURL: speechConfig.textToSpeech?.apiBase,
+    });
+    
     // 测试简单的文字转语音
     const testText = "您好，这是一个语音测试。";
     

@@ -36,3 +36,8 @@ Walle is an AI assistant application built with Next.js, TypeScript, and Tailwin
 - Support streaming responses for better UX
 - Handle multiple input modalities (text, voice, image)
 - Implement proper prompt engineering practices
+
+## Core
+- Config File: config.yaml
+- ASR Model: FunAudioLLM/SenseVoiceSmall
+- TTS Model: FunAudioLLM/CosyVoice2-0.5B

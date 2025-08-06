@@ -1,0 +1,87 @@
+# Continue.dev Configuration for Walle AI Assistant
+# 取代 .env.local 文件的配置方案
+# 参考：https://docs.continue.dev/reference
+
+# 🤖 主要模型配置
+models:
+  # 智谱AI - 主聊天模型（来自 .env.local）
+  - name: "GLM-4.5-Flash"
+    provider: "openai" 
+    model: "GLM-4.5-Flash"
+    apiKey: ""
+    apiBase: "https://open.bigmodel.cn/api/paas/v4/"
+    contextLength: 128000
+    maxTokens: 8192
+    temperature: 0.7
+    roles: ["chat"]
+
+  # 智谱AI - 备用模型（来自 MODEL_LIST）
+  - name: "GLM-4-Flash"
+    provider: "openai"
+    model: "GLM-4-Flash-250414" 
+    apiKey: ""
+    apiBase: "https://open.bigmodel.cn/api/paas/v4/"
+    contextLength: 128000
+    maxTokens: 8192
+    temperature: 0.7
+
+  - name: "GLM-Z1-Flash"
+    provider: "openai"
+    model: "GLM-Z1-Flash"
+    apiKey: "" 
+    apiBase: "https://open.bigmodel.cn/api/paas/v4/"
+    contextLength: 128000
+    maxTokens: 8192
+    temperature: 0.7
+
+# 🎙️ 语音识别配置（来自 ASR_MODEL）
+speechToTextProvider:
+  name: "SenseVoice Small"
+  provider: "openai"
+  model: "FunAudioLLM/SenseVoiceSmall"
+  apiKey: ""
+  apiBase: "https://open.bigmodel.cn/api/paas/v4/"
+
+# 🔊 语音合成配置（来自 NEXT_PUBLIC_TTS_MODEL）  
+textToSpeechProvider:
+  name: "CosyVoice2-0.5B"
+  provider: "openai"
+  model: "FunAudioLLM/CosyVoice2-0.5B"
+  apiKey: ""
+  apiBase: "https://open.bigmodel.cn/api/paas/v4/"
+  voice: "anna"
+
+# 📝 应用配置（来自 NEXT_PUBLIC_APP_NAME 和 NEXT_PUBLIC_APP_VERSION）
+app:
+  name: "Walle"
+  version: "1.0.0"
+
+# 🔍 上下文提供者（基础配置）
+contextProviders:
+  - name: "codebase"
+  - name: "file" 
+  - name: "open"
+  - name: "terminal"
+
+# ⚡ 基础斜杠命令
+slashCommands:
+  - name: "edit"
+    description: "编辑选中的代码"
+  - name: "comment" 
+    description: "添加代码注释"
+  - name: "cmd"
+    description: "生成命令行指令"
+
+# 🔧 系统配置
+system:
+  timeout: 30000
+  maxRetries: 3
+
+# 🎨 界面配置
+ui:
+  language: "zh"
+  theme: "auto"
+
+# 📊 遥测设置
+telemetry:
+  enabled: false

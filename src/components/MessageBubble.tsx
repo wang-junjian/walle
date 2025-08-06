@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -10,20 +10,23 @@ import { Message } from '@/types/chat';
 import { User, Bot, Brain, ChevronDown, ChevronUp, Copy, Check } from 'lucide-react';
 import { formatTime } from '@/utils/time';
 import { ChatToolbar } from './ChatToolbar';
+import AgentThoughtsDisplay from './AgentThoughtsDisplay';
 
 interface MessageBubbleProps {
   message: Message;
   selectedVoice?: string;
   onRegenerate?: () => void;
   onToggleReasoning?: (messageId: string) => void;
+  onToggleAgentThoughts?: (messageId: string) => void;
 }
 
-export function MessageBubble({ message, selectedVoice, onRegenerate, onToggleReasoning }: MessageBubbleProps) {
+export function MessageBubble({ message, selectedVoice, onRegenerate, onToggleReasoning, onToggleAgentThoughts }: MessageBubbleProps) {
   const { t } = useTranslation();
   const isUser = message.role === 'user';
   const [imageUrls, setImageUrls] = useState<string[]>([]);
   const [isDark, setIsDark] = useState(false);
   const [copiedBlocks, setCopiedBlocks] = useState<Set<string>>(new Set());
+  const messageRef = useRef<HTMLDivElement>(null);
   
   // 检测暗色主题
   useEffect(() => {
@@ -45,6 +48,23 @@ export function MessageBubble({ message, selectedVoice, onRegenerate, onToggleRe
   
   // 使用消息中的展开状态，而不是本地状态
   const showReasoning = message.reasoning_expanded ?? false;
+  
+  // 智能体思考更新时的平滑滚动
+  useEffect(() => {
+    if (!isUser && message.agent_thoughts?.length && message.agent_expanded) {
+      // 延迟滚动，确保DOM已更新
+      const timer = setTimeout(() => {
+        if (messageRef.current) {
+          messageRef.current.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'nearest',
+            inline: 'nearest' 
+          });
+        }
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [message.agent_thoughts?.length, message.agent_expanded, isUser]);
 
   // 复制代码块内容
   const copyToClipboard = async (code: string, blockId: string) => {
@@ -113,7 +133,10 @@ export function MessageBubble({ message, selectedVoice, onRegenerate, onToggleRe
   }, [message.attachments, message.id]); // Add message.id to dependencies
 
   return (
-    <div className={`flex items-start space-x-5 ${isUser ? 'justify-end' : 'justify-start'}`}>
+    <div 
+      ref={messageRef}
+      className={`flex items-start space-x-5 ${isUser ? 'justify-end' : 'justify-start'}`}
+    >
       {!isUser && (
         <div className="flex-shrink-0 w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center">
           <Bot className="h-7 w-7 text-white" />
@@ -247,6 +270,17 @@ export function MessageBubble({ message, selectedVoice, onRegenerate, onToggleRe
                   </div>
                 </div>
               )}
+            </div>
+          )}
+          
+          {/* 智能体思考过程显示 - 在消息内容之前 */}
+          {!isUser && message.agent_thoughts && message.agent_thoughts.length > 0 && (
+            <div className="mb-4">
+              <AgentThoughtsDisplay
+                thoughts={message.agent_thoughts}
+                isExpanded={message.agent_expanded ?? true}
+                onToggleExpanded={() => onToggleAgentThoughts?.(message.id)}
+              />
             </div>
           )}
           

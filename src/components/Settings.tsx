@@ -5,7 +5,9 @@ import { useTranslation } from 'react-i18next';
 import { ModelSelector } from './ModelSelector';
 import { LanguageSelector } from './LanguageSelector';
 import VoiceSelector from './VoiceSelector';
-import { voiceConfig } from '@/config/voice';
+
+// 内联默认语音配置
+const DEFAULT_VOICE = 'anna';
 
 interface SettingsProps {
   selectedModel?: string;
@@ -14,7 +16,7 @@ interface SettingsProps {
 
 export function Settings({ selectedModel, onModelChange }: SettingsProps) {
   const { t } = useTranslation();
-  const [selectedVoice, setSelectedVoice] = useState(voiceConfig.defaultVoice);
+  const [selectedVoice, setSelectedVoice] = useState(DEFAULT_VOICE);
   const [darkMode, setDarkMode] = useState(false);
   const [autoSave, setAutoSave] = useState(true);
   const [soundEnabled, setSoundEnabled] = useState(true);
@@ -98,7 +100,7 @@ export function Settings({ selectedModel, onModelChange }: SettingsProps) {
           setDarkMode(data.settings.darkMode || false);
           setAutoSave(data.settings.autoSave !== undefined ? data.settings.autoSave : true);
           setSoundEnabled(data.settings.soundEnabled !== undefined ? data.settings.soundEnabled : true);
-          setSelectedVoice(data.settings.selectedVoice || voiceConfig.defaultVoice);
+          setSelectedVoice(data.settings.selectedVoice || DEFAULT_VOICE);
           if (data.settings.selectedModel && onModelChange) {
             onModelChange(data.settings.selectedModel);
           }
@@ -116,7 +118,7 @@ export function Settings({ selectedModel, onModelChange }: SettingsProps) {
       setDarkMode(false);
       setAutoSave(true);
       setSoundEnabled(true);
-      setSelectedVoice(voiceConfig.defaultVoice);
+      setSelectedVoice(DEFAULT_VOICE);
       if (onModelChange) {
         onModelChange('');
       }

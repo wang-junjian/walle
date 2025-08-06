@@ -1,24 +1,32 @@
+import { getConfigManager } from '@/config/config-manager';
 import { NextResponse } from 'next/server';
 
 export async function GET() {
   try {
-    // Get model list from environment variable
-    const modelListEnv = process.env.MODEL_LIST;
-    const currentModel = process.env.OPENAI_MODEL;
-
-    if (!modelListEnv) {
+    const configManager = getConfigManager();
+    const allModels = configManager.getAllModels();
+    
+    if (!allModels || allModels.length === 0) {
       return NextResponse.json(
-        { error: 'MODEL_LIST not configured' },
+        { error: 'No models configured' },
         { status: 500 }
       );
     }
 
-    // Parse the comma-separated model list
-    const models = modelListEnv.split(',').map(model => model.trim());
+    // Transform models for API response
+    const models = allModels.map(model => ({
+      id: model.model,
+      name: model.title || model.name || model.model,
+      provider: model.provider,
+      roles: model.roles || []
+    }));
+
+    // Get default chat model
+    const defaultChatModel = configManager.getDefaultModel('chat');
 
     return NextResponse.json({
       models,
-      currentModel: currentModel || models[0], // Default to first model if not specified
+      currentModel: defaultChatModel || models[0]?.id,
     });
   } catch (error) {
     console.error('Error fetching models:', error);
@@ -40,27 +48,18 @@ export async function POST(request: Request) {
       );
     }
 
-    // Validate that the model is in the allowed list
-    const modelListEnv = process.env.MODEL_LIST;
-    if (!modelListEnv) {
-      return NextResponse.json(
-        { error: 'MODEL_LIST not configured' },
-        { status: 500 }
-      );
-    }
-
-    const allowedModels = modelListEnv.split(',').map(m => m.trim());
-    if (!allowedModels.includes(model)) {
+    // Validate that the model exists in configuration
+    const configManager = getConfigManager();
+    const modelConfig = configManager.getModelConfig(model);
+    
+    if (!modelConfig) {
       return NextResponse.json(
         { error: 'Invalid model selection' },
         { status: 400 }
       );
     }
 
-    // In a real application, you might want to store this in a database
-    // or session storage. For now, we'll just return success.
-    // The actual model switching will be handled in the chat API.
-    
+    // Return success - model selection is handled by the config system
     return NextResponse.json({
       success: true,
       selectedModel: model,

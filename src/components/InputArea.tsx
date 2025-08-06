@@ -1,9 +1,18 @@
 'use client';
 
-import { useRef, useState, useEffect, useCallback, forwardRef, useImperativeHandle } from 'react';
+import React, { useState, useRef, useCallback, useEffect, useImperativeHandle, forwardRef } from 'react';
+import { Mic, Image as ImageIcon, X, Loader2, MessageSquare, Zap } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { Mic, Image as ImageIcon, X, Loader2 } from 'lucide-react';
 import { VoiceRecorder, transcribeAudio, getWebSpeechLanguage, isSpeechRecognitionSupported } from '@/utils/voice';
+import { AgentMode } from '@/types/chat';
+
+// 定义模型接口
+interface ModelInfo {
+  id: string;
+  name: string;
+  provider: string;
+  roles: string[];
+}
 
 interface InputAreaProps {
   input: string;
@@ -18,6 +27,8 @@ interface InputAreaProps {
   setIsRecording: (value: boolean) => void;
   selectedModel?: string;
   onModelChange?: (model: string) => void;
+  agentMode?: AgentMode;
+  onAgentModeChange?: (mode: AgentMode) => void;
 }
 
 export interface InputAreaRef {
@@ -36,7 +47,9 @@ export const InputArea = forwardRef<InputAreaRef, InputAreaProps>(({
   isRecording,
   setIsRecording,
   selectedModel,
-  onModelChange
+  onModelChange,
+  agentMode,
+  onAgentModeChange
 }, ref) => {
   const { t } = useTranslation();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -47,7 +60,7 @@ export const InputArea = forwardRef<InputAreaRef, InputAreaProps>(({
   const [useRealtimeTranscription, setUseRealtimeTranscription] = useState(true);
   
   // 模型选择相关状态
-  const [models, setModels] = useState<string[]>([]);
+  const [models, setModels] = useState<ModelInfo[]>([]);
   const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false);
   const [isModelsLoading, setIsModelsLoading] = useState(true);
   const [dropdownWidth, setDropdownWidth] = useState<number>(256); // 默认宽度 w-64
@@ -91,12 +104,18 @@ export const InputArea = forwardRef<InputAreaRef, InputAreaProps>(({
   const displayText = input + (interimTranscript ? (input ? ' ' : '') + interimTranscript : '');
 
   // 获取模型列表
-  const formatModelName = useCallback((model?: string) => {
-    return model?.split('/').pop()?.replace(/-/g, ' ') || model || 'Select Model';
+  const formatModelName = useCallback((model?: string | ModelInfo) => {
+    if (typeof model === 'string') {
+      return model?.split('/').pop()?.replace(/-/g, ' ') || model || 'Select Model';
+    }
+    if (model && typeof model === 'object') {
+      return model.name || model.id?.split('/').pop()?.replace(/-/g, ' ') || 'Select Model';
+    }
+    return 'Select Model';
   }, []);
 
   // 计算下拉菜单的最佳宽度
-  const calculateDropdownWidth = useCallback((modelList: string[]) => {
+  const calculateDropdownWidth = useCallback((modelList: ModelInfo[]) => {
     if (modelList.length === 0) return 256; // 默认宽度
     
     // 检查是否在浏览器环境中
@@ -142,8 +161,8 @@ export const InputArea = forwardRef<InputAreaRef, InputAreaProps>(({
     }
   }, [calculateDropdownWidth]);
 
-  const handleModelChange = useCallback((model: string) => {
-    onModelChange?.(model);
+  const handleModelChange = useCallback((model: ModelInfo) => {
+    onModelChange?.(model.id);
     setIsModelDropdownOpen(false);
   }, [onModelChange]);
 
@@ -156,12 +175,12 @@ export const InputArea = forwardRef<InputAreaRef, InputAreaProps>(({
     if (!isModelsLoading && models.length > 0 && !selectedModel) {
       // 首先检查localStorage中是否有保存的模型
       const savedModel = localStorage.getItem('selectedModel');
-      if (savedModel && models.includes(savedModel)) {
+      if (savedModel && models.find(model => model.id === savedModel)) {
         // 如果localStorage中有保存的模型且在模型列表中，使用保存的模型
         onModelChange?.(savedModel);
       } else {
         // 否则使用第一个模型作为默认模型
-        onModelChange?.(models[0]);
+        onModelChange?.(models[0].id);
       }
     }
   }, [isModelsLoading, models, selectedModel, onModelChange]);
@@ -349,16 +368,35 @@ export const InputArea = forwardRef<InputAreaRef, InputAreaProps>(({
           <div className="flex items-center justify-between px-2 pb-1 pt-0 border-gray-100 dark:border-gray-600">
             {/* 左侧功能按钮组 */}
             <div className="flex items-center space-x-1">
-              {/* 加号按钮 - 更多功能 */}
-              <button
-                className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-full transition-colors"
-                disabled={isLoading}
-                title="更多功能"
-              >
-                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
-              </button>
+              {/* 模式切换按钮 */}
+              {agentMode && onAgentModeChange && (
+                <div className="flex items-center bg-gray-100 dark:bg-gray-600 rounded-full p-0.5">
+                  <button
+                    onClick={() => onAgentModeChange({ type: 'chat', label: t('mode.chat') })}
+                    className={`flex items-center gap-1 px-2 py-1 text-xs rounded-full transition-all ${
+                      agentMode.type === 'chat'
+                        ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
+                        : 'text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100'
+                    }`}
+                    title={t('mode.chat')}
+                  >
+                    <MessageSquare className="h-3 w-3" />
+                    <span>{t('mode.chat')}</span>
+                  </button>
+                  <button
+                    onClick={() => onAgentModeChange({ type: 'agent', label: t('mode.agent') })}
+                    className={`flex items-center gap-1 px-2 py-1 text-xs rounded-full transition-all ${
+                      agentMode.type === 'agent'
+                        ? 'bg-white dark:bg-gray-700 text-purple-600 dark:text-purple-400 shadow-sm'
+                        : 'text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100'
+                    }`}
+                    title={t('mode.agent')}
+                  >
+                    <Zap className="h-3 w-3" />
+                    <span>{t('mode.agent')}</span>
+                  </button>
+                </div>
+              )}
             </div>
             
             {/* 右侧操作按钮 */}
@@ -399,10 +437,10 @@ export const InputArea = forwardRef<InputAreaRef, InputAreaProps>(({
                       >
                         {models.map((model) => (
                           <button
-                            key={model}
+                            key={model.id}
                             onClick={() => handleModelChange(model)}
                             className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 first:rounded-t-lg last:rounded-b-lg transition-colors ${
-                              selectedModel === model 
+                              selectedModel === model.id 
                                 ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' 
                                 : 'text-gray-700 dark:text-gray-300'
                             }`}

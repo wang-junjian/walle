@@ -1,12 +1,11 @@
 'use client';
 
-import { useState, useEffect, useImperativeHandle, forwardRef, useRef } from 'react';
+import { useState, useEffect, useImperativeHandle, forwardRef, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Message, StreamChunk, MessageStats } from '@/types/chat';
+import { Message, StreamChunk, MessageStats, AgentMode, AgentThought } from '@/types/chat';
 import { MessageList } from './MessageList';
 import { InputArea, InputAreaRef } from './InputArea';
 import { AnimatedRobot } from './AnimatedRobot';
-import { voiceConfig } from '@/config/voice';
 
 interface ChatInterfaceProps {
   selectedModel?: string;
@@ -24,21 +23,25 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
   ({ selectedModel, onModelChange, onUpdateConversation, onStartConversation }, ref) => {
     const { t, i18n } = useTranslation();
   
-  const getWelcomeMessage = (): Message => ({
+  // Get welcome message function
+  const getWelcomeMessage = useCallback((): Message => ({
     id: '1',
     content: t('chat.welcome'),
     role: 'assistant',
     timestamp: new Date(),
-  });
+  }), [t]);
 
   const [messages, setMessages] = useState<Message[]>([getWelcomeMessage()]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [selectedVoice, setSelectedVoice] = useState(voiceConfig.defaultVoice);
+  const [_selectedVoice, _setSelectedVoice] = useState('anna');
   
   // 简化：只需要录音状态
   const [isRecording, setIsRecording] = useState(false);
+
+  // 智能体模式状态
+  const [agentMode, setAgentMode] = useState<AgentMode>({ type: 'chat', label: 'Chat' });
 
   // 用于跟踪对话更新
   const lastSavedMessageCount = useRef(0);
@@ -57,6 +60,14 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
       }
       return prevMessages;
     });
+  }, [t, getWelcomeMessage]);
+  
+  // 更新智能体模式标签
+  useEffect(() => {
+    setAgentMode(prev => ({
+      ...prev,
+      label: prev.type === 'chat' ? t('mode.chat') : t('mode.agent')
+    }));
   }, [t]);
   
   // 监听 isLoading 变化，当消息发送完成时聚焦输入框
@@ -158,6 +169,18 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
     ));
   };
 
+  const handleToggleAgentThoughts = (messageId: string) => {
+    setMessages(prev => prev.map(msg => 
+      msg.id === messageId 
+        ? { ...msg, agent_expanded: !msg.agent_expanded }
+        : msg
+    ));
+  };
+
+  const handleAgentModeChange = (mode: AgentMode) => {
+    setAgentMode(mode);
+  };
+
   const handleRegenerate = async (messageId: string) => {
     // 找到要重新生成的消息
     const messageIndex = messages.findIndex(msg => msg.id === messageId);
@@ -239,8 +262,8 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
 
             for (const line of lines) {
               if (line.startsWith('data: ')) {
-                const data = line.slice(6);
-                if (data === '[DONE]') {
+                const data = line.slice(6).trim();
+                if (data === '[DONE]' || data === '') {
                   continue;
                 }
 
@@ -288,7 +311,9 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
                     throw new Error(parsed.error || 'Streaming error');
                   }
                 } catch (parseError) {
-                  console.error('Error parsing streaming data:', parseError);
+                  console.warn('跳过无效的JSON数据 (重新生成):', data.substring(0, 100), 'Error:', parseError);
+                  // 跳过无效的JSON数据，继续处理下一个数据块
+                  continue;
                 }
               }
             }
@@ -366,11 +391,17 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
       content: '',
       role: 'assistant',
       timestamp: new Date(),
+      // 如果是智能体模式，初始化智能体思考数组
+      agent_thoughts: agentMode.type === 'agent' ? [] : undefined,
+      agent_expanded: agentMode.type === 'agent' ? true : undefined,
     };
 
     setMessages(prev => [...prev, assistantMessage]);
 
     try {
+      // 根据模式选择不同的API端点
+      const apiEndpoint = agentMode.type === 'agent' ? '/api/agent' : '/api/chat';
+
       // Prepare the request data
       const formData = new FormData();
       formData.append('message', fullMessage);
@@ -385,8 +416,11 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
 
       // Add conversation history (使用之前保存的历史，不包含刚发送的用户消息)
       formData.append('history', JSON.stringify(conversationHistory));
+      
+      // Add current language
+      formData.append('language', i18n.language);
 
-      const response = await fetch('/api/chat', {
+      const response = await fetch(apiEndpoint, {
         method: 'POST',
         body: formData,
       });
@@ -401,6 +435,7 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
       let accumulatedContent = '';
       let accumulatedReasoning = '';
       let messageStats: MessageStats | undefined;
+      let agentThoughts: AgentThought[] = [];
 
       if (reader) {
         try {
@@ -413,8 +448,8 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
 
             for (const line of lines) {
               if (line.startsWith('data: ')) {
-                const data = line.slice(6);
-                if (data === '[DONE]') {
+                const data = line.slice(6).trim();
+                if (data === '[DONE]' || data === '') {
                   continue;
                 }
 
@@ -433,13 +468,96 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
                     accumulatedReasoning += parsed.reasoning_content;
                     console.log('收到推理内容:', parsed.reasoning_content.substring(0, 100) + '...');
                     
-                    // 当开始接收思维链内容时，将其展开，但不在收到回复内容时自动折叠
                     setMessages(prev => prev.map(msg => 
                       msg.id === assistantMessageId 
                         ? { 
                             ...msg, 
                             reasoning_content: accumulatedReasoning,
-                            reasoning_expanded: true // 自动展开思维链
+                            reasoning_expanded: true
+                          }
+                        : msg
+                    ));
+                  } else if (parsed.type === 'agent_thought' && parsed.agent_thought) {
+                    // 新的智能体思考
+                    agentThoughts.push(parsed.agent_thought);
+                    
+                    setMessages(prev => prev.map(msg => 
+                      msg.id === assistantMessageId 
+                        ? { 
+                            ...msg, 
+                            agent_thoughts: [...agentThoughts],
+                            agent_expanded: true  // 确保面板展开
+                          }
+                        : msg
+                    ));
+                  } else if (parsed.type === 'agent_thought_update') {
+                    // 流式更新智能体思考内容
+                    if (parsed.agent_thought) {
+                      // 完整的思考对象更新
+                      const thoughtToUpdate = parsed.agent_thought;
+                      console.log('收到 agent_thought_update (完整对象):', {
+                        id: thoughtToUpdate.id,
+                        type: thoughtToUpdate.type,
+                        status: thoughtToUpdate.status,
+                        contentLength: thoughtToUpdate.content?.length || 0,
+                        contentPreview: thoughtToUpdate.content?.substring(0, 100) || '无内容'
+                      });
+                      
+                      const existingIndex = agentThoughts.findIndex(thought => thought.id === thoughtToUpdate.id);
+                      
+                      if (existingIndex >= 0) {
+                        // 更新现有思考
+                        agentThoughts[existingIndex] = { ...agentThoughts[existingIndex], ...thoughtToUpdate };
+                      } else {
+                        // 如果思考不存在，添加新的
+                        agentThoughts.push(thoughtToUpdate);
+                      }
+                    } else if (parsed.agent_thought_id) {
+                      // 部分字段更新
+                      console.log('收到 agent_thought_update (部分更新):', {
+                        id: parsed.agent_thought_id,
+                        status: parsed.status,
+                        content: parsed.content
+                      });
+                      
+                      agentThoughts = agentThoughts.map(thought => 
+                        thought.id === parsed.agent_thought_id 
+                          ? { 
+                              ...thought, 
+                              status: parsed.status || thought.status,
+                              content: parsed.content || thought.content 
+                            }
+                          : thought
+                      );
+                    }
+                    
+                    setMessages(prev => prev.map(msg => 
+                      msg.id === assistantMessageId 
+                        ? { 
+                            ...msg, 
+                            agent_thoughts: [...agentThoughts],
+                            agent_expanded: true  // 保持展开状态
+                          }
+                        : msg
+                    ));
+                  } else if (parsed.type === 'sub_agent' && parsed.sub_agent) {
+                    // 更新子智能体
+                    agentThoughts = agentThoughts.map(thought => {
+                      if (thought.type === 'collaboration' && thought.sub_agents) {
+                        const updatedSubAgents = thought.sub_agents.map(agent =>
+                          agent.id === parsed.sub_agent?.id ? parsed.sub_agent : agent
+                        );
+                        return { ...thought, sub_agents: updatedSubAgents };
+                      }
+                      return thought;
+                    });
+                    
+                    setMessages(prev => prev.map(msg => 
+                      msg.id === assistantMessageId 
+                        ? { 
+                            ...msg, 
+                            agent_thoughts: [...agentThoughts],
+                            agent_expanded: true  // 保持展开状态
                           }
                         : msg
                     ));
@@ -453,7 +571,6 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
                       finishReason: parsed.finishReason,
                     };
                     
-                    // Update the message with final stats
                     setMessages(prev => prev.map(msg => 
                       msg.id === assistantMessageId 
                         ? { ...msg, stats: messageStats }
@@ -463,7 +580,9 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
                     throw new Error(parsed.error || 'Streaming error');
                   }
                 } catch (parseError) {
-                  console.error('Error parsing streaming data:', parseError);
+                  console.warn('跳过无效的JSON数据 (发送消息):', data.substring(0, 100), 'Error:', parseError);
+                  // 跳过无效的JSON数据，继续处理下一个数据块
+                  continue;
                 }
               }
             }
@@ -485,6 +604,15 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
       setIsLoading(false);
       // 标记需要更新对话
       shouldUpdateConversation.current = true;
+      
+      // 移除自动折叠逻辑，让智能体思考过程保持展开
+      // setTimeout(() => {
+      //   setMessages(prev => prev.map(msg => 
+      //     msg.agent_thoughts?.length && msg.agent_expanded !== false
+      //       ? { ...msg, agent_expanded: false }
+      //       : msg
+      //   ));
+      // }, 8000);
     }
   };
 
@@ -544,6 +672,8 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
               setIsRecording={setIsRecording}
               selectedModel={selectedModel}
               onModelChange={onModelChange}
+              agentMode={agentMode}
+              onAgentModeChange={handleAgentModeChange}
             />
             <div className="text-center mt-3">
               <p className="text-xs text-gray-500 dark:text-gray-400">
@@ -565,9 +695,10 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
             <MessageList 
               messages={messages} 
               isLoading={isLoading} 
-              selectedVoice={selectedVoice}
+              selectedVoice={_selectedVoice}
               onRegenerate={handleRegenerate}
               onToggleReasoning={handleToggleReasoning}
+              onToggleAgentThoughts={handleToggleAgentThoughts}
             />
           </div>
         </div>
@@ -589,6 +720,8 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
             setIsRecording={setIsRecording}
             selectedModel={selectedModel}
             onModelChange={onModelChange}
+            agentMode={agentMode}
+            onAgentModeChange={handleAgentModeChange}
           />
           <div className="text-center mt-3">
             <p className="text-xs text-gray-500 dark:text-gray-400">

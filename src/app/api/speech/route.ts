@@ -1,14 +1,46 @@
+import { getConfigManager } from '@/config/config-manager';
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
-import { voiceConfig, getRecognitionLanguage } from '@/config/voice';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-  baseURL: process.env.OPENAI_BASE_URL,
-});
+// Initialize OpenAI client for speech operations
+const initializeSpeechOpenAI = (speechConfig?: { apiKey?: string; apiBase?: string }) => {
+  const configManager = getConfigManager();
+  
+  // If specific speech config is provided, use it
+  if (speechConfig && speechConfig.apiKey && speechConfig.apiBase) {
+    return new OpenAI({
+      apiKey: speechConfig.apiKey,
+      baseURL: speechConfig.apiBase,
+    });
+  }
+  
+  // Otherwise, use the first available model's config as fallback
+  const models = configManager.getAllModels();
+  if (models.length > 0) {
+    const firstModel = models[0];
+    if (firstModel.apiKey && firstModel.apiBase) {
+      return new OpenAI({
+        apiKey: firstModel.apiKey,
+        baseURL: firstModel.apiBase,
+      });
+    }
+  }
+  
+  throw new Error('No valid speech API configuration found');
+};
 
 export async function POST(request: NextRequest) {
   try {
+    const configManager = getConfigManager();
+    const speechConfig = configManager.getSpeechConfig();
+    
+    console.log('Speech API Debug Info:', {
+      hasSTT: !!speechConfig.speechToText,
+      hasTTS: !!speechConfig.textToSpeech,
+      sttModel: speechConfig.speechToText?.model,
+      ttsModel: speechConfig.textToSpeech?.model,
+    });
+
     const formData = await request.formData();
     const action = formData.get('action') as string;
 
@@ -19,18 +51,28 @@ export async function POST(request: NextRequest) {
       }
 
       try {
-        // Speech to text using custom ASR model
+        if (!speechConfig.speechToText) {
+          return NextResponse.json({ error: 'Speech-to-text not configured' }, { status: 500 });
+        }
+
+        // Initialize OpenAI client for STT
+        const openai = initializeSpeechOpenAI(speechConfig.speechToText);
+
+        // Speech to text using configured ASR model
         const language = formData.get('language') as string || 'zh';
         
-        console.log('ASR Request:', { model: voiceConfig.asrModel, language: getRecognitionLanguage(language) });
+        console.log('ASR Request:', { 
+          model: speechConfig.speechToText.model, 
+          language: language || 'auto' 
+        });
 
         const transcriptionParams = {
           file: audio,
-          model: voiceConfig.asrModel,
+          model: speechConfig.speechToText.model,
         };
 
         // 只有支持语言参数的模型才添加language
-        const recognitionLang = getRecognitionLanguage(language);
+        const recognitionLang = language || 'auto';
         if (recognitionLang && recognitionLang !== 'auto') {
           Object.assign(transcriptionParams, { language: recognitionLang });
         }
@@ -43,38 +85,47 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: `ASR failed: ${asrError instanceof Error ? asrError.message : 'Unknown error'}` }, { status: 500 });
       }
     } else if (action === 'synthesize') {
-      // Text to speech using custom TTS model
+      // Text to speech using configured TTS model
       const text = formData.get('text') as string;
-      const voice = (formData.get('voice') as string) || voiceConfig.defaultVoice;
+      const voice = ((formData.get('voice') as string) || 'anna').toLowerCase(); // 确保语音名称是小写
       
       if (!text) {
         return NextResponse.json({ error: 'No text provided' }, { status: 400 });
       }
 
-      console.log('TTS Request:', { text, voice, model: voiceConfig.ttsModel });
+      if (!speechConfig.textToSpeech) {
+        return NextResponse.json({ error: 'Text-to-speech not configured' }, { status: 500 });
+      }
+
+      console.log('TTS Request:', { 
+        text, 
+        voice, 
+        model: speechConfig.textToSpeech.model,
+        apiBase: speechConfig.textToSpeech.apiBase 
+      });
 
       try {
         let audioBuffer;
         
         // 检查是否使用 SiliconFlow API (CosyVoice2 或 MOSS-TTSD)
-        if (voiceConfig.ttsModel.includes('CosyVoice2') || voiceConfig.ttsModel.includes('MOSS-TTSD')) {
+        if (speechConfig.textToSpeech.model.includes('CosyVoice2') || speechConfig.textToSpeech.model.includes('MOSS-TTSD')) {
           // 使用 SiliconFlow API
           console.log('Using SiliconFlow TTS API');
           
           const requestBody = {
-            model: voiceConfig.ttsModel,
+            model: speechConfig.textToSpeech.model,
             input: text,
-            voice: voice.startsWith('FunAudioLLM/') ? voice : `FunAudioLLM/CosyVoice2-0.5B:${voice}`,
+            voice: `${speechConfig.textToSpeech.model}:${voice}`,
             response_format: 'mp3',
             speed: 1.0,
           };
           
           console.log('SiliconFlow TTS Request:', requestBody);
           
-          const response = await fetch(`${process.env.OPENAI_BASE_URL}/audio/speech`, {
+          const response = await fetch(`${speechConfig.textToSpeech.apiBase}/audio/speech`, {
             method: 'POST',
             headers: {
-              'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+              'Authorization': `Bearer ${speechConfig.textToSpeech.apiKey}`,
               'Content-Type': 'application/json',
             },
             body: JSON.stringify(requestBody),
@@ -87,18 +138,20 @@ export async function POST(request: NextRequest) {
           }
           
           audioBuffer = Buffer.from(await response.arrayBuffer());
-        } else if (voiceConfig.ttsModel.includes('tts-') || voiceConfig.ttsModel === 'tts-1' || voiceConfig.ttsModel === 'tts-1-hd') {
+        } else if (speechConfig.textToSpeech.model.includes('tts-') || speechConfig.textToSpeech.model === 'tts-1' || speechConfig.textToSpeech.model === 'tts-1-hd') {
           // 使用标准OpenAI TTS模型
+          const openai = initializeSpeechOpenAI(speechConfig.textToSpeech);
           const mp3 = await openai.audio.speech.create({
-            model: voiceConfig.ttsModel,
+            model: speechConfig.textToSpeech.model,
             voice: voice as 'alloy' | 'echo' | 'fable' | 'onyx' | 'nova' | 'shimmer',
             input: text,
           });
           audioBuffer = Buffer.from(await mp3.arrayBuffer());
         } else {
           // 使用其他兼容的模型
+          const openai = initializeSpeechOpenAI(speechConfig.textToSpeech);
           const mp3 = await openai.audio.speech.create({
-            model: voiceConfig.ttsModel,
+            model: speechConfig.textToSpeech.model,
             voice: 'alloy',
             input: text,
           });

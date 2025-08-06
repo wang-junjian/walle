@@ -24,13 +24,13 @@ export function MainLayout({ selectedModel, onModelChange }: MainLayoutProps) {
     switchToConversation,
     deleteConversation,
     getConversationSummaries,
-    getCurrentConversation,
+    getCurrentConversation: _getCurrentConversation,
     currentConversationId,
     resetCurrentConversation,
   } = useConversations();
 
   // 当前对话的消息
-  const [currentMessages, setCurrentMessages] = useState<Message[]>([]);
+  const [_currentMessages, _setCurrentMessages] = useState<Message[]>([]);
 
   const handleTabChange = (tab: string) => {
     if (tab === 'chat' && selectedTab === 'chat') {
@@ -45,7 +45,7 @@ export function MainLayout({ selectedModel, onModelChange }: MainLayoutProps) {
     // 不立即创建对话，只是重置到初始状态
     // 重置当前对话ID，这样下次发送消息时会创建新对话
     resetCurrentConversation();
-    setCurrentMessages([]);
+    _setCurrentMessages([]);
     chatRef.current?.newChat();
   };
 
@@ -54,7 +54,7 @@ export function MainLayout({ selectedModel, onModelChange }: MainLayoutProps) {
     if (conversation) {
       console.log('加载对话:', conversationId, '消息数量:', conversation.messages.length);
       console.log('对话消息:', conversation.messages);
-      setCurrentMessages(conversation.messages);
+      _setCurrentMessages(conversation.messages);
       setSelectedTab('chat');
       chatRef.current?.loadConversation(conversation.messages);
     }
@@ -73,7 +73,7 @@ export function MainLayout({ selectedModel, onModelChange }: MainLayoutProps) {
     console.log('更新对话消息:', messages.length, messages);
     // 使用setTimeout来避免在渲染过程中更新状态
     setTimeout(() => {
-      setCurrentMessages(messages);
+      _setCurrentMessages(messages);
       updateCurrentConversation(messages);
     }, 0);
   }, [updateCurrentConversation]);

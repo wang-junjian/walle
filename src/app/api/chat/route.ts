@@ -1,3 +1,4 @@
+import { getConfigManager } from '@/config/config-manager';
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 
@@ -6,17 +7,31 @@ const MAX_MESSAGE_LENGTH = 10000;
 const MAX_IMAGE_SIZE = 20 * 1024 * 1024; // 20MB
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
 
-// Initialize OpenAI client with error handling
-const initializeOpenAI = () => {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
-    throw new Error('OPENAI_API_KEY is not configured');
+// Initialize OpenAI client with config
+const initializeOpenAI = (modelConfig?: { apiKey?: string; apiBase?: string } | null) => {
+  const configManager = getConfigManager();
+  
+  // If specific model config is provided, use it
+  if (modelConfig && modelConfig.apiKey && modelConfig.apiBase) {
+    return new OpenAI({
+      apiKey: modelConfig.apiKey,
+      baseURL: modelConfig.apiBase,
+    });
   }
   
-  return new OpenAI({
-    apiKey,
-    baseURL: process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1',
-  });
+  // Otherwise, use the first available model's config
+  const models = configManager.getAllModels();
+  if (models.length > 0) {
+    const firstModel = models[0];
+    if (firstModel.apiKey && firstModel.apiBase) {
+      return new OpenAI({
+        apiKey: firstModel.apiKey,
+        baseURL: firstModel.apiBase,
+      });
+    }
+  }
+  
+  throw new Error('No valid API configuration found');
 };
 
 // Input validation helpers
@@ -36,9 +51,6 @@ const validateImage = (imageFile: File | null): string | null => {
 
 export async function POST(request: NextRequest) {
   try {
-    // Initialize OpenAI client
-    const openai = initializeOpenAI();
-
     // Parse form data with error handling
     const formData = await request.formData();
     const message = formData.get('message') as string;
@@ -64,19 +76,38 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Determine which model to use
-    let modelToUse = process.env.OPENAI_MODEL || 'gpt-4o-mini';
+    const configManager = getConfigManager();
+    const allModels = configManager.getAllModels();
     
-    // If a specific model is selected and it's in the allowed list, use it
+    // Determine which model to use
+    let modelToUse = 'GLM-4.5-Flash'; // Default model
+    let modelConfig = null;
+    
+    // If a specific model is selected and it exists in config, use it
     if (selectedModel) {
-      const modelListEnv = process.env.MODEL_LIST;
-      if (modelListEnv) {
-        const allowedModels = modelListEnv.split(',').map(m => m.trim());
-        if (allowedModels.includes(selectedModel)) {
-          modelToUse = selectedModel;
-        }
+      const selectedModelConfig = allModels.find(m => m.model === selectedModel);
+      if (selectedModelConfig) {
+        modelToUse = selectedModel;
+        modelConfig = selectedModelConfig;
+      }
+    } else {
+      // Use first available model
+      if (allModels.length > 0) {
+        modelToUse = allModels[0].model;
+        modelConfig = allModels[0];
       }
     }
+
+    // Initialize OpenAI client with the selected model's config
+    const openai = initializeOpenAI(modelConfig);
+    
+    console.log('Chat API Debug Info:');
+    console.log('- Selected Model:', modelToUse);
+    console.log('- Model Config:', {
+      apiBase: modelConfig?.apiBase,
+      hasApiKey: !!modelConfig?.apiKey,
+      provider: modelConfig?.provider
+    });
 
     // Parse conversation history
     const baseMessages: OpenAI.ChatCompletionMessageParam[] = [

@@ -25,7 +25,7 @@ export function Translator() {
   const [selectedModel, setSelectedModel] = useState<string>('');
   const [models, setModels] = useState<string[]>([]);
   const [error, setError] = useState<string>('');
-  const [usage, setUsage] = useState<TranslationUsage | null>(null);
+  const [_usage, _setUsage] = useState<TranslationUsage | null>(null);
   const [copySuccess, setCopySuccess] = useState(false);
 
   const languages: TranslationLanguage[] = [
@@ -67,7 +67,7 @@ export function Translator() {
     setIsLoading(true);
     setIsStreaming(false);
     setError('');
-    setUsage(null);
+    _setUsage(null);
     setTranslatedText('');
 
     try {
@@ -149,7 +149,7 @@ export function Translator() {
     }
   };
 
-  const handleSwapLanguages = () => {
+  const _handleSwapLanguages = () => {
     if (sourceLang === 'auto') return;
     
     setSourceLang(targetLang);
@@ -174,7 +174,7 @@ export function Translator() {
     setSourceText('');
     setTranslatedText('');
     setError('');
-    setUsage(null);
+    _setUsage(null);
   };
 
   return (
