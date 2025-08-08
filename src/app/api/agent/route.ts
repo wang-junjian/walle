@@ -3,7 +3,6 @@ import { NextRequest } from 'next/server';
 import OpenAI from 'openai';
 import { AgentThought, SubAgent } from '@/types/chat';
 import { AgentFactory } from '@/utils/modern-agent-system';
-import { selectToolsForTask } from '@/utils/agent-tools';
 import { debugLogger } from '@/utils/debug-logger';
 
 // Initialize OpenAI client
@@ -38,7 +37,8 @@ const processSingleAgent = async (
   model: string,
   language: string,
   controller: ReadableStreamDefaultController<Uint8Array>,
-  encoder: TextEncoder
+  encoder: TextEncoder,
+  enableCodeExecution: boolean = false
 ) => {
   const agent = AgentFactory.createAgent('analyst', openai, model, language);
   const allThoughts: AgentThought[] = [];
@@ -68,19 +68,51 @@ const processSingleAgent = async (
   const thinkingThought = await agent.thinkStream(observationThought.content, message, onThoughtUpdate);
   allThoughts.push(thinkingThought);
 
-  // Action phase with streaming - 收集工具结果
-  const tools = await selectToolsForTask(message);
-  if (tools.length > 0) {
-    const actionThought = await agent.executeActionStream(message, tools[0].name, onThoughtUpdate);
-    allThoughts.push(actionThought);
-    
-    // 收集工具执行结果
-    if (actionThought.tool_output) {
-      allToolResults.push({
-        toolName: actionThought.tool_name || tools[0].name,
-        input: actionThought.tool_input || {},
-        output: actionThought.tool_output
-      });
+  // 如果启用代码执行，先使用模型判断是否需要执行代码
+  let needsCodeExecution = false;
+  if (enableCodeExecution) {
+    try {
+      // 使用智能决策引擎判断
+      const { getDecisionEngine } = await import('@/utils/intelligent-decision-engine');
+      const decisionEngine = getDecisionEngine();
+      const decision = await decisionEngine.analyzeUserRequest(message);
+      needsCodeExecution = decision.toolsRequired.includes('code_execution');
+      
+      if (needsCodeExecution) {
+        console.log('模型判断需要代码执行，准备生成和执行代码');
+        
+        // 创建代码执行思考
+        const codeExecutionThought: AgentThought = {
+          id: `code-execution-${Date.now()}`,
+          type: 'action',
+          title: language.startsWith('zh') ? '代码执行' : 'Code Execution',
+          content: language.startsWith('zh') ? '准备生成代码解决问题...' : 'Preparing to generate code to solve the problem...',
+          timestamp: new Date(),
+          status: 'running',
+          tool_name: 'code_execution'
+        };
+        
+        // 发送思考更新
+        onThoughtUpdate(codeExecutionThought);
+        
+        // 执行代码生成和执行
+        const actionThought = await agent.executeActionStream(message, 'code_execution', onThoughtUpdate);
+        allThoughts.push(actionThought);
+        
+        // 收集工具执行结果
+        if (actionThought.tool_output) {
+          allToolResults.push({
+            toolName: 'code_execution',
+            input: actionThought.tool_input || {},
+            output: actionThought.tool_output
+          });
+        }
+      } else {
+        console.log('模型判断无需代码执行，直接进行反思阶段');
+      }
+    } catch (error) {
+      console.error('代码执行判断失败:', error);
+      // 失败时不执行代码，继续正常流程
     }
   }
 
@@ -92,7 +124,8 @@ const processSingleAgent = async (
   return {
     thoughts: allThoughts,
     toolResults: allToolResults,
-    agentAnalysis: reflectionThought.content
+    agentAnalysis: reflectionThought.content,
+    codeExecuted: needsCodeExecution
   };
 };
 
@@ -103,7 +136,8 @@ const processMultiAgent = async (
   model: string,
   language: string,
   controller: ReadableStreamDefaultController<Uint8Array>,
-  encoder: TextEncoder
+  encoder: TextEncoder,
+  enableCodeExecution: boolean = false
 ) => {
   const agents = [
     AgentFactory.createAgent('analyst', openai, model, language),
@@ -148,6 +182,19 @@ const processMultiAgent = async (
     })}\n\n`));
   };
 
+  // 先判断是否需要代码执行
+  let needsCodeExecution = false;
+  if (enableCodeExecution) {
+    try {
+      const { getDecisionEngine } = await import('@/utils/intelligent-decision-engine');
+      const decisionEngine = getDecisionEngine();
+      const decision = await decisionEngine.analyzeUserRequest(message);
+      needsCodeExecution = decision.toolsRequired.includes('code_execution');
+    } catch (error) {
+      console.error('代码执行判断失败:', error);
+    }
+  }
+
   // Process each agent with streaming
   for (let i = 0; i < agents.length; i++) {
     const agent = agents[i];
@@ -179,15 +226,15 @@ const processMultiAgent = async (
       progress: 70
     })}\n\n`));
 
-    const tools = await selectToolsForTask(message);
-    if (tools.length > 0) {
-      const actionThought = await agent.executeActionStream(message, tools[0].name, onThoughtUpdate);
+    // 只对第一个智能体执行代码，避免重复执行
+    if (needsCodeExecution && i === 0) {
+      const actionThought = await agent.executeActionStream(message, 'code_execution', onThoughtUpdate);
       allThoughts.push(actionThought);
       
       // 收集工具执行结果
       if (actionThought.tool_output) {
         allToolResults.push({
-          toolName: actionThought.tool_name || tools[0].name,
+          toolName: 'code_execution',
           input: actionThought.tool_input || {},
           output: actionThought.tool_output,
           agentName: agent.getName()
@@ -233,7 +280,8 @@ const processMultiAgent = async (
   return {
     thoughts: allThoughts,
     toolResults: allToolResults,
-    collaborationSummary: collaborationThought.content
+    collaborationSummary: collaborationThought.content,
+    codeExecuted: needsCodeExecution
   };
 };
 
@@ -253,13 +301,15 @@ export async function POST(request: NextRequest) {
         const conversationHistory = formData.get('history') as string;
         const selectedModel = formData.get('model') as string;
         const language = formData.get('language') as string || 'zh';
+        const enableCodeExecution = formData.get('enableCodeExecution') === 'true';
 
         debugLogger.logApiRequest('/api/agent', 'POST', {
           hasMessage: !!message,
           messageLength: message?.length || 0,
           hasImage: !!imageFile,
           selectedModel: selectedModel || 'default',
-          language
+          language,
+          enableCodeExecution
         });
 
         if (!message && !imageFile) {
@@ -296,16 +346,17 @@ export async function POST(request: NextRequest) {
         debugLogger.info('AGENT_API', 'Agent configuration', {
           selectedModel: modelToUse,
           language,
-          isComplexTask: isComplexTask
+          isComplexTask: isComplexTask,
+          enableCodeExecution
         });
 
         let agentResults;
         if (isComplexTask) {
           debugLogger.info('AGENT_API', 'Using multi-agent processing');
-          agentResults = await processMultiAgent(message, openai, modelToUse, language, controller, encoder);
+          agentResults = await processMultiAgent(message, openai, modelToUse, language, controller, encoder, enableCodeExecution);
         } else {
           debugLogger.info('AGENT_API', 'Using single agent processing');
-          agentResults = await processSingleAgent(message, openai, modelToUse, language, controller, encoder);
+          agentResults = await processSingleAgent(message, openai, modelToUse, language, controller, encoder, enableCodeExecution);
         }
 
         // Generate final response based on agent analysis and tool results
@@ -331,7 +382,12 @@ export async function POST(request: NextRequest) {
           contextualPrompt += `=== 多智能体协作总结 ===\n${agentResults.collaborationSummary}\n\n`;
         }
         
-        contextualPrompt += `基于以上工具执行结果和分析，请为用户提供准确、有用的回答。如果工具执行了计算，请直接使用工具的计算结果，不要重新计算。`;
+        // 根据是否执行了代码来调整回答指令
+        if ('codeExecuted' in agentResults && agentResults.codeExecuted) {
+          contextualPrompt += `基于以上代码执行结果和分析，请为用户提供准确、有用的回答。请直接使用代码的计算结果，不要重新计算。如果代码解决了用户的问题，请清晰地展示结果。`;
+        } else {
+          contextualPrompt += `基于以上分析，请为用户提供准确、有用的回答。`;
+        }
 
         const messages = [
           ...history,
@@ -414,7 +470,8 @@ export async function POST(request: NextRequest) {
         debugLogger.logPerformance('agent_api_total', endTime - startTime, {
           model: modelToUse,
           isComplexTask,
-          hasToolResults: !!(agentResults.toolResults && agentResults.toolResults.length > 0)
+          hasToolResults: !!(agentResults.toolResults && agentResults.toolResults.length > 0),
+          codeExecuted: 'codeExecuted' in agentResults ? agentResults.codeExecuted : false
         });
 
         controller.enqueue(encoder.encode(`data: [DONE]\n\n`));

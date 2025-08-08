@@ -24,6 +24,14 @@
     "chat": "聊天",
     "agent": "智能体"
   },
+  "features": {
+    "search": "搜索",
+    "searchDescription": "启用网络搜索功能",
+    "codeExecution": "代码执行",
+    "codeExecutionDescription": "启用代码执行功能",
+    "enableSearch": "启用搜索",
+    "enableCodeExecution": "启用代码执行"
+  },
   "agent": {
     "observation": "观察分析",
     "thought": "深度思考",

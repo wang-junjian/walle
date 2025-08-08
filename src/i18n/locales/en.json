@@ -24,6 +24,14 @@
     "chat": "Chat",
     "agent": "Agent"
   },
+  "features": {
+    "search": "Search",
+    "searchDescription": "Enable web search functionality",
+    "codeExecution": "Code Execution",
+    "codeExecutionDescription": "Enable code execution functionality",
+    "enableSearch": "Enable Search",
+    "enableCodeExecution": "Enable Code Execution"
+  },
   "agent": {
     "observation": "Observation",
     "thought": "Deep Thinking",

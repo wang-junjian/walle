@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useCallback, useEffect, useImperativeHandle, forwardRef } from 'react';
-import { Mic, Image as ImageIcon, X, Loader2, MessageSquare, Zap, Square } from 'lucide-react';
+import { Mic, Image as ImageIcon, X, Loader2, MessageSquare, Zap, Square, Search, Code } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { VoiceRecorder, transcribeAudio, getWebSpeechLanguage, isSpeechRecognitionSupported } from '@/utils/voice';
 import { AgentMode } from '@/types/chat';
@@ -30,6 +30,10 @@ interface InputAreaProps {
   agentMode?: AgentMode;
   onAgentModeChange?: (mode: AgentMode) => void;
   onStopGeneration?: () => void;
+  enableSearch?: boolean;
+  onSearchToggle?: (enabled: boolean) => void;
+  enableCodeExecution?: boolean;
+  onCodeExecutionToggle?: (enabled: boolean) => void;
 }
 
 export interface InputAreaRef {
@@ -51,7 +55,11 @@ export const InputArea = forwardRef<InputAreaRef, InputAreaProps>(({
   onModelChange,
   agentMode,
   onAgentModeChange,
-  onStopGeneration
+  onStopGeneration,
+  enableSearch = false,
+  onSearchToggle,
+  enableCodeExecution = false,
+  onCodeExecutionToggle
 }, ref) => {
   const { t } = useTranslation();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -399,6 +407,40 @@ export const InputArea = forwardRef<InputAreaRef, InputAreaProps>(({
                     <span>{t('mode.agent')}</span>
                   </button>
                 </div>
+              )}
+
+              {/* 搜索功能切换 */}
+              {onSearchToggle && (
+                <button
+                  onClick={() => onSearchToggle(!enableSearch)}
+                  className={`flex items-center gap-1 px-2 py-1 text-xs rounded-full transition-all ${
+                    enableSearch
+                      ? 'bg-green-100 dark:bg-green-900/20 text-green-600 dark:text-green-400 border border-green-200 dark:border-green-800'
+                      : 'text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-600'
+                  }`}
+                  title={t('features.searchDescription')}
+                  disabled={isLoading}
+                >
+                  <Search className="h-3 w-3" />
+                  <span>{t('features.search')}</span>
+                </button>
+              )}
+
+              {/* 代码执行功能切换 */}
+              {onCodeExecutionToggle && (
+                <button
+                  onClick={() => onCodeExecutionToggle(!enableCodeExecution)}
+                  className={`flex items-center gap-1 px-2 py-1 text-xs rounded-full transition-all ${
+                    enableCodeExecution
+                      ? 'bg-orange-100 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 border border-orange-200 dark:border-orange-800'
+                      : 'text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-600'
+                  }`}
+                  title={t('features.codeExecutionDescription')}
+                  disabled={isLoading}
+                >
+                  <Code className="h-3 w-3" />
+                  <span>{t('features.codeExecution')}</span>
+                </button>
               )}
             </div>
             

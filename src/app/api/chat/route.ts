@@ -82,6 +82,13 @@ export async function POST(request: NextRequest) {
     const imageFile = formData.get('image') as File | null;
     const conversationHistory = formData.get('history') as string;
     const selectedModel = formData.get('model') as string;
+    const enableSearch = formData.get('enableSearch') === 'true';
+    const enableCodeExecution = formData.get('enableCodeExecution') === 'true';
+
+    // Track enabled tools for logging
+    const enabledTools: string[] = [];
+    if (enableSearch) enabledTools.push('web_search');
+    if (enableCodeExecution) enabledTools.push('code_execution');
 
     debugLogger.logApiRequest('/api/chat', 'POST', {
       hasMessage: !!message,
@@ -89,7 +96,10 @@ export async function POST(request: NextRequest) {
       hasImage: !!imageFile,
       imageSize: imageFile?.size || 0,
       selectedModel: selectedModel || 'default',
-      hasHistory: !!conversationHistory
+      hasHistory: !!conversationHistory,
+      enableSearch,
+      enableCodeExecution,
+      enabledTools: enabledTools.join(', ') || 'none'
     });
 
     // Validate inputs
@@ -146,12 +156,33 @@ export async function POST(request: NextRequest) {
     });
 
     // Parse conversation history
+    let systemContent = `You are Walle, a helpful AI assistant. You can process text and images. 
+        Be friendly, helpful, and provide clear, concise responses. 
+        If you receive an image, describe what you see and provide relevant insights.`;
+    
+    // Add tool capabilities to system message if enabled
+    if (enableSearch) {
+      systemContent += `\n\n🔍 SEARCH CAPABILITY ENABLED:
+You have access to web search functionality. When users ask questions that would benefit from current information, recent data, or specific facts, you should:
+1. Use web search to find relevant, up-to-date information
+2. Provide accurate answers based on search results
+3. Cite sources when possible`;
+    }
+    
+    if (enableCodeExecution) {
+      systemContent += `\n\n⚡ CODE EXECUTION CAPABILITY ENABLED:
+You have access to secure code execution in multiple languages (JavaScript, Python, SQL, Shell). When users need:
+1. Code examples or demonstrations
+2. Mathematical calculations or data processing
+3. Algorithm implementations
+4. Data analysis or transformations
+You should write and execute appropriate code to solve their problems. Always explain what the code does and show the results.`;
+    }
+
     const baseMessages: OpenAI.ChatCompletionMessageParam[] = [
       {
         role: 'system',
-        content: `You are Walle, a helpful AI assistant. You can process text and images. 
-        Be friendly, helpful, and provide clear, concise responses. 
-        If you receive an image, describe what you see and provide relevant insights.`
+        content: systemContent
       }
     ];
 
@@ -177,6 +208,49 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // 新的智能决策流程：先判断是否需要代码执行
+    let needsCodeExecution = false;
+    
+    if (enableCodeExecution && message) {
+      try {
+        // 使用智能决策引擎判断是否需要代码执行
+        const { getDecisionEngine } = await import('@/utils/intelligent-decision-engine');
+        const decisionEngine = getDecisionEngine();
+        const decision = await decisionEngine.analyzeUserRequest(message);
+        needsCodeExecution = decision.toolsRequired.includes('code_execution');
+        
+        debugLogger.info('CHAT_API', 'Code execution decision', {
+          message: message.substring(0, 100),
+          needsCodeExecution,
+          reasoning: decision.reasoning,
+          confidence: decision.confidence
+        });
+        
+        if (needsCodeExecution) {
+          // 如果需要代码执行，直接开始流式响应，包含代码生成过程
+          return await handleCodeExecutionWithStreaming(
+            request,
+            openai,
+            modelToUse,
+            modelConfig,
+            baseMessages,
+            message,
+            conversationHistory,
+            enableSearch,
+            enableCodeExecution
+          );
+        }
+      } catch (error) {
+        debugLogger.error('CHAT_API', 'Code execution decision/generation failed', {
+          error: error instanceof Error ? error.message : 'Unknown error'
+        });
+        // 继续正常流程，不中断用户体验
+      }
+    }
+
+    // 构建最终的用户消息
+    const finalUserMessage = message;
+
     // Handle text + optional image
     if (imageFile) {
       // Convert image to base64
@@ -189,7 +263,7 @@ export async function POST(request: NextRequest) {
         content: [
           {
             type: 'text',
-            text: message || 'What do you see in this image?'
+            text: finalUserMessage || 'What do you see in this image?'
           },
           {
             type: 'image_url',
@@ -203,7 +277,7 @@ export async function POST(request: NextRequest) {
     } else {
       baseMessages.push({
         role: 'user',
-        content: message
+        content: finalUserMessage
       });
     }
 
@@ -316,6 +390,7 @@ export async function POST(request: NextRequest) {
     const readableStream = new ReadableStream({
       async start(controller) {
         try {
+
           // 确保是流式响应
           if (Symbol.asyncIterator in stream) {
             for await (const chunk of stream) {
@@ -372,14 +447,16 @@ export async function POST(request: NextRequest) {
                   totalTokens: inputTokens + outputTokens,
                   duration: duration.toFixed(2),
                   tokensPerSecond,
-                  finishReason: chunk.choices[0].finish_reason
+                  finishReason: chunk.choices[0].finish_reason,
+                  codeExecuted: needsCodeExecution
                 });
                 
                 debugLogger.logPerformance('chat_completion', endTime - startTime, {
                   model: modelToUse,
                   inputTokens,
                   outputTokens,
-                  tokensPerSecond
+                  tokensPerSecond,
+                  codeExecuted: needsCodeExecution
                 });
                 
                 // Send final statistics
@@ -485,4 +562,164 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+// 处理代码执行的流式响应 - 简化用户体验版本
+async function handleCodeExecutionWithStreaming(
+  _request: NextRequest,
+  openai: OpenAI,
+  modelToUse: string,
+  modelConfig: { maxTokens?: number; temperature?: number } | null,
+  baseMessages: OpenAI.ChatCompletionMessageParam[],
+  message: string,
+  _conversationHistory: string,
+  _enableSearch: boolean,
+  _enableCodeExecution: boolean
+) {
+  const encoder = new TextEncoder();
+  
+  const stream = new ReadableStream({
+    async start(controller) {
+      try {
+        // 动态导入代码执行工具
+        const { codeExecutionTool } = await import('@/utils/real-tools');
+        
+        // 1. 后台生成代码（不展示给用户）
+        const codeGenerationPrompt = `
+你是一个代码生成专家。用户提出了以下问题，需要编写代码来解决：
+
+用户问题：「${message}」
+
+请分析问题并生成适当的JavaScript代码来解决。要求：
+1. 如果是字符串处理问题（如统计字符数量），请直接处理字符串
+2. 如果是数学计算问题，请准确计算
+3. 使用const/let定义变量，包含console.log输出结果
+4. 代码简洁可读
+5. 重要：不要包含任何markdown格式，不要使用\`\`\`javascript标记
+6. 只返回纯JavaScript代码，不要任何格式化标记
+
+示例：
+const str = "test string";
+const count = str.length;
+console.log(count);
+
+请只返回可执行的JavaScript代码：`;
+
+        const codeGenerationMessages: OpenAI.ChatCompletionMessageParam[] = [
+          { role: 'user', content: codeGenerationPrompt }
+        ];
+
+        // 后台生成代码（不流式显示）
+        const codeResponse = await openai.chat.completions.create({
+          model: modelToUse,
+          messages: codeGenerationMessages,
+          max_tokens: 1000,
+          temperature: 0.3,
+          stream: false
+        });
+
+        let generatedCode = codeResponse.choices[0]?.message?.content?.trim() || '';
+        
+        // 清理代码：移除可能的markdown格式
+        generatedCode = generatedCode.replace(/^```javascript\s*/i, '');
+        generatedCode = generatedCode.replace(/^```js\s*/i, '');
+        generatedCode = generatedCode.replace(/^```\s*/i, '');
+        generatedCode = generatedCode.replace(/\s*```\s*$/i, '');
+        generatedCode = generatedCode.replace(/\n\s*\n\s*\n/g, '\n\n');
+        generatedCode = generatedCode.trim();
+        
+        console.log('清理后的代码:', generatedCode);
+
+        // 2. 后台执行代码
+        let executionResult: { success?: boolean; result?: string; output?: string[]; error?: string } | null = null;
+        let executionSuccess = false;
+        
+        if (generatedCode) {
+          try {
+            executionResult = await codeExecutionTool.execute({
+              code: generatedCode,
+              language: 'javascript',
+              enableDebug: true
+            });
+            executionSuccess = executionResult?.success === true;
+          } catch (error) {
+            console.error('代码执行失败:', error);
+            executionSuccess = false;
+          }
+        }
+
+        // 3. 基于执行结果生成最终回答（流式显示）
+        let finalPrompt = '';
+        
+        if (executionSuccess && executionResult) {
+          const result = executionResult.result || '';
+          const output = (executionResult as { output?: string[] }).output || [];
+          
+          finalPrompt = `用户问题：${message}
+
+我已经编写并执行了代码来解决这个问题。
+
+代码：
+${generatedCode}
+
+执行结果：${result}
+控制台输出：${output.join('\n')}
+
+请基于代码执行的结果，给出简洁明确的最终答案。如果用户想要查看代码实现过程，可以展开查看详细信息。
+
+格式要求：
+- 先给出直接答案
+- 然后可以选择性地添加一个可展开的详细过程部分`;
+        } else {
+          finalPrompt = `用户问题：${message}
+
+代码执行遇到了问题，请直接分析并回答用户的问题。`;
+        }
+
+        // 构建最终消息
+        const finalMessages: OpenAI.ChatCompletionMessageParam[] = [
+          ...baseMessages.slice(0, -1), // 保留历史对话
+          { role: 'user', content: finalPrompt }
+        ];
+
+        // 流式生成最终回答
+        const finalStream = await openai.chat.completions.create({
+          model: modelToUse,
+          messages: finalMessages,
+          max_tokens: modelConfig?.maxTokens || 1000,
+          temperature: modelConfig?.temperature || 0.7,
+          stream: true
+        });
+
+        // 直接流式输出最终回答，不显示技术过程
+        for await (const chunk of finalStream) {
+          const content = chunk.choices[0]?.delta?.content || '';
+          if (content) {
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({
+              type: 'content',
+              content: content
+            })}\n\n`));
+          }
+        }
+
+        controller.enqueue(encoder.encode(`data: [DONE]\n\n`));
+        controller.close();
+
+      } catch (error) {
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify({
+          type: 'error',
+          content: `处理过程中发生错误: ${error instanceof Error ? error.message : '未知错误'}`
+        })}\n\n`));
+        controller.close();
+      }
+    }
+  });
+
+  return new Response(stream, {
+    headers: {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+    },
+  });
 }

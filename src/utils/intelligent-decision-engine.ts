@@ -16,17 +16,148 @@ export class IntelligentDecisionEngine {
   // 智能判断用户请求的处理策略
   async analyzeUserRequest(message: string, context?: string): Promise<IntelligentDecision> {
     try {
-      // 构建分析提示词
-      const analysisPrompt = this.buildAnalysisPrompt(message, context);
+      // 使用模型来判断是否需要代码执行
+      const needsCodeExecution = await this.checkIfNeedsCodeExecution(message, context);
       
-      // 调用 LLM 进行智能分析
-      const decision = await this.callLLMForDecision(analysisPrompt);
-      
-      return decision;
+      if (needsCodeExecution) {
+        return {
+          needsThinking: true,
+          thinkingStrategy: 'step-by-step',
+          toolsRequired: ['code_execution'],
+          confidence: 0.9,
+          reasoning: '模型判断此问题需要代码执行来解决',
+          estimatedComplexity: 'medium'
+        };
+      } else {
+        // 对于不需要代码执行的问题，使用简化的决策
+        return {
+          needsThinking: false,
+          thinkingStrategy: 'none',
+          toolsRequired: [],
+          confidence: 0.85,
+          reasoning: '模型判断此问题可以直接回答，无需代码执行',
+          estimatedComplexity: 'low'
+        };
+      }
     } catch (error) {
       console.error('智能决策失败，使用后备策略:', error);
       return this.fallbackDecision(message);
     }
+  }
+  
+  // 使用模型判断是否需要代码执行
+  private async checkIfNeedsCodeExecution(message: string, context?: string): Promise<boolean> {
+    try {
+      // 构建判断提示词
+      const judgmentPrompt = this.buildCodeExecutionJudgmentPrompt(message, context);
+      
+      // 调用模型进行判断
+      const result = await this.callModelForJudgment(judgmentPrompt);
+      
+      return result;
+    } catch (error) {
+      console.error('模型判断失败，使用后备逻辑:', error);
+      // 如果模型调用失败，使用简化的后备逻辑
+      return this.fallbackCodeExecutionCheck(message);
+    }
+  }
+  
+  // 构建代码执行判断提示词
+  private buildCodeExecutionJudgmentPrompt(message: string, context?: string): string {
+    return `
+你是一个智能助手的决策引擎。请判断用户的问题是否需要通过编写和执行代码来解决。
+
+用户问题：「${message}」
+${context ? `对话上下文：${context}` : ''}
+
+判断标准：
+1. 需要代码执行的情况：
+   - 数学计算（如：计算表达式、统计数字等）
+   - 数据处理和分析
+   - 算法实现和验证
+   - 字符串处理（如：计算字符数量、查找模式等）
+   - 文件操作模拟
+   - 复杂逻辑运算
+
+2. 不需要代码执行的情况：
+   - 基础常识问答
+   - 概念解释
+   - 建议和意见
+   - 创意写作
+   - 简单对话
+   - 历史知识
+
+请只回答"是"或"否"，不要添加任何解释。
+
+示例：
+- "http://localhost:3000/这个字符串有几个0" → 是
+- "计算 123 + 456" → 是
+- "什么是人工智能" → 否
+- "你好，今天天气怎么样" → 否
+- "分析这组数据：[1,2,3,4,5]" → 是
+
+回答：`;
+  }
+  
+  // 调用模型进行判断
+  private async callModelForJudgment(prompt: string): Promise<boolean> {
+    // 获取第一个可用的模型配置
+    const models = this.configManager.getAllModels();
+    if (models.length === 0) {
+      throw new Error('没有可用的模型配置');
+    }
+    
+    const firstModel = models[0];
+    if (!firstModel.apiKey || !firstModel.apiBase) {
+      throw new Error('模型配置无效');
+    }
+    
+    // 动态导入 OpenAI（避免在模块顶层导入）
+    const { default: OpenAI } = await import('openai');
+    
+    const openai = new OpenAI({
+      apiKey: firstModel.apiKey,
+      baseURL: firstModel.apiBase,
+    });
+    
+    const response = await openai.chat.completions.create({
+      model: firstModel.model,
+      messages: [
+        {
+          role: 'user',
+          content: prompt
+        }
+      ],
+      max_tokens: 10, // 只需要简短回答
+      temperature: 0.1, // 使用较低温度确保一致性
+    });
+    
+    const answer = response.choices[0]?.message?.content?.trim().toLowerCase();
+    
+    // 判断回答
+    if (answer?.includes('是') || answer?.includes('yes')) {
+      return true;
+    } else if (answer?.includes('否') || answer?.includes('no')) {
+      return false;
+    } else {
+      // 如果回答不明确，使用后备逻辑
+      console.warn('模型回答不明确:', answer);
+      return this.fallbackCodeExecutionCheck(prompt);
+    }
+  }
+  
+  // 后备的代码执行检查逻辑
+  private fallbackCodeExecutionCheck(message: string): boolean {
+    // 简化的关键字检测，仅作为后备
+    const codeIndicators = [
+      /计算.*?\d/, // 计算相关
+      /\d+.*?个/, // 数量统计
+      /分析.*?数据/, // 数据分析
+      /统计/, // 统计
+      /[\d+\-*/()=]/, // 数学表达式
+    ];
+    
+    return codeIndicators.some(pattern => pattern.test(message));
   }
   
   private buildAnalysisPrompt(message: string, context?: string): string {

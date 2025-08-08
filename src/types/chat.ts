@@ -1,3 +1,26 @@
+export interface ToolExecution {
+  id: string;
+  type: string; // 'code_execution', 'web_search', etc.
+  description: string;
+  timestamp: Date;
+  status: 'pending' | 'running' | 'completed' | 'error';
+  
+  // Code execution specific
+  language?: string;
+  code?: string;
+  output?: string[];
+  result?: string;
+  execution_time?: number;
+  
+  // Search specific
+  query?: string;
+  search_results?: unknown[];
+  
+  // General
+  success?: boolean;
+  error?: string;
+}
+
 export interface Message {
   id: string;
   content: string;
@@ -9,6 +32,8 @@ export interface Message {
   reasoning_expanded?: boolean; // 控制思维链展开状态
   agent_thoughts?: AgentThought[]; // 智能体思考过程
   agent_expanded?: boolean; // 控制智能体思考展开状态
+  tool_executions?: ToolExecution[]; // 工具执行记录
+  tool_expanded?: boolean; // 控制工具执行展开状态
 }
 
 export interface AgentThought {
@@ -116,7 +141,7 @@ export interface MessageStats {
 }
 
 export interface StreamChunk {
-  type: 'content' | 'reasoning' | 'stats' | 'error' | 'agent_thought' | 'agent_thought_update' | 'agent_update' | 'tool_result' | 'sub_agent' | 'sub_agent_update';
+  type: 'content' | 'reasoning' | 'stats' | 'error' | 'agent_thought' | 'agent_thought_update' | 'agent_update' | 'tool_result' | 'sub_agent' | 'sub_agent_update' | 'tool_code_generation' | 'tool_execution_result' | 'status' | 'code_generation_start' | 'code_generation' | 'code_generation_end' | 'execution_result' | 'execution_error' | 'final_answer_start' | 'final_answer';
   content?: string;
   reasoning_content?: string; // 推理思维链内容
   inputTokens?: number;
@@ -141,4 +166,12 @@ export interface StreamChunk {
     input: Record<string, unknown>;
     output?: Record<string, unknown>;
   };
+  // 工具代码生成和执行结果
+  tool_type?: string;
+  description?: string;
+  language?: string;
+  code?: string;
+  success?: boolean;
+  result?: unknown;
+  execution_time?: number;
 }

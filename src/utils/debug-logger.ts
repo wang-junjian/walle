@@ -215,12 +215,13 @@ class DebugLogger {
     });
   }
 
-  // Stream logging
-  logStreamEvent(eventType: string, data: Record<string, unknown>) {
-    this.debug('STREAM', `Stream event: ${eventType}`, {
-      eventType,
-      ...data
-    });
+  // Stream logging - 禁用以减少噪音
+  logStreamEvent(_eventType: string, _data: Record<string, unknown>) {
+    // 不记录流事件以减少日志噪音
+    // this.debug('STREAM', `Stream event: ${eventType}`, {
+    //   eventType,
+    //   ...data
+    // });
   }
 }
 

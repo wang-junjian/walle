@@ -5,7 +5,6 @@ import { useTranslation } from 'react-i18next';
 import { Message, StreamChunk, MessageStats, AgentMode, AgentThought } from '@/types/chat';
 import { MessageList } from './MessageList';
 import { InputArea, InputAreaRef } from './InputArea';
-import { AnimatedRobot } from './AnimatedRobot';
 
 interface ChatInterfaceProps {
   selectedModel?: string;
@@ -45,6 +44,10 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
 
   // 智能体模式状态
   const [agentMode, setAgentMode] = useState<AgentMode>({ type: 'chat', label: 'Chat' });
+
+  // 功能选项状态
+  const [enableSearch, setEnableSearch] = useState(false);
+  const [enableCodeExecution, setEnableCodeExecution] = useState(false);
 
   // 用于跟踪对话更新
   const lastSavedMessageCount = useRef(0);
@@ -169,14 +172,6 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
     loadConversation: handleLoadConversation
   }));
 
-  // 根据当前状态确定机器人状态
-  const getRobotStatus = (): 'idle' | 'listening' | 'thinking' | 'speaking' | 'typing' | 'error' => {
-    if (isLoading) return 'thinking';
-    if (isRecording) return 'listening';
-    // 可以根据其他状态扩展
-    return 'idle';
-  };
-
   const handleToggleReasoning = (messageId: string) => {
     setMessages(prev => prev.map(msg => 
       msg.id === messageId 
@@ -195,6 +190,14 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
 
   const handleAgentModeChange = (mode: AgentMode) => {
     setAgentMode(mode);
+  };
+
+  const handleSearchToggle = (enabled: boolean) => {
+    setEnableSearch(enabled);
+  };
+
+  const handleCodeExecutionToggle = (enabled: boolean) => {
+    setEnableCodeExecution(enabled);
   };
 
   const handleRegenerate = async (messageId: string) => {
@@ -345,6 +348,86 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
                         ? { ...msg, stats: messageStats }
                         : msg
                     ));
+                  } else if (parsed.type === 'status') {
+                    // 显示状态信息（重新生成）
+                    if (parsed.content) {
+                      accumulatedContent += parsed.content;
+                      setMessages(prev => prev.map(msg => 
+                        msg.id === newAssistantMessageId 
+                          ? { ...msg, content: accumulatedContent }
+                          : msg
+                      ));
+                    }
+                  } else if (parsed.type === 'code_generation_start') {
+                    // 开始代码生成（重新生成）
+                    if (parsed.content) {
+                      accumulatedContent += parsed.content;
+                      setMessages(prev => prev.map(msg => 
+                        msg.id === newAssistantMessageId 
+                          ? { ...msg, content: accumulatedContent }
+                          : msg
+                      ));
+                    }
+                  } else if (parsed.type === 'code_generation') {
+                    // 流式代码生成内容（重新生成）
+                    if (parsed.content) {
+                      accumulatedContent += parsed.content;
+                      setMessages(prev => prev.map(msg => 
+                        msg.id === newAssistantMessageId 
+                          ? { ...msg, content: accumulatedContent }
+                          : msg
+                      ));
+                    }
+                  } else if (parsed.type === 'code_generation_end') {
+                    // 代码生成结束（重新生成）
+                    if (parsed.content) {
+                      accumulatedContent += parsed.content;
+                      setMessages(prev => prev.map(msg => 
+                        msg.id === newAssistantMessageId 
+                          ? { ...msg, content: accumulatedContent }
+                          : msg
+                      ));
+                    }
+                  } else if (parsed.type === 'execution_result') {
+                    // 代码执行结果（重新生成）
+                    if (parsed.content) {
+                      accumulatedContent += parsed.content;
+                      setMessages(prev => prev.map(msg => 
+                        msg.id === newAssistantMessageId 
+                          ? { ...msg, content: accumulatedContent }
+                          : msg
+                      ));
+                    }
+                  } else if (parsed.type === 'execution_error') {
+                    // 代码执行错误（重新生成）
+                    if (parsed.content) {
+                      accumulatedContent += parsed.content;
+                      setMessages(prev => prev.map(msg => 
+                        msg.id === newAssistantMessageId 
+                          ? { ...msg, content: accumulatedContent }
+                          : msg
+                      ));
+                    }
+                  } else if (parsed.type === 'final_answer_start') {
+                    // 最终回答开始（重新生成）
+                    if (parsed.content) {
+                      accumulatedContent += parsed.content;
+                      setMessages(prev => prev.map(msg => 
+                        msg.id === newAssistantMessageId 
+                          ? { ...msg, content: accumulatedContent }
+                          : msg
+                      ));
+                    }
+                  } else if (parsed.type === 'final_answer') {
+                    // 最终回答内容（重新生成）
+                    if (parsed.content) {
+                      accumulatedContent += parsed.content;
+                      setMessages(prev => prev.map(msg => 
+                        msg.id === newAssistantMessageId 
+                          ? { ...msg, content: accumulatedContent }
+                          : msg
+                      ));
+                    }
                   } else if (parsed.type === 'error') {
                     throw new Error(parsed.error || 'Streaming error');
                   }
@@ -469,6 +552,10 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
       
       // Add current language
       formData.append('language', i18n.language);
+
+      // Add feature options
+      formData.append('enableSearch', enableSearch.toString());
+      formData.append('enableCodeExecution', enableCodeExecution.toString());
 
       const response = await fetch(apiEndpoint, {
         method: 'POST',
@@ -638,6 +725,101 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
                         ? { ...msg, stats: messageStats }
                         : msg
                     ));
+                  } else if (parsed.type === 'status') {
+                    // 显示状态信息
+                    if (parsed.content) {
+                      accumulatedContent += parsed.content;
+                      setMessages(prev => prev.map(msg => 
+                        msg.id === assistantMessageId 
+                          ? { ...msg, content: accumulatedContent }
+                          : msg
+                      ));
+                    }
+                  } else if (parsed.type === 'code_generation_start') {
+                    // 开始代码生成
+                    if (parsed.content) {
+                      accumulatedContent += parsed.content;
+                      setMessages(prev => prev.map(msg => 
+                        msg.id === assistantMessageId 
+                          ? { ...msg, content: accumulatedContent }
+                          : msg
+                      ));
+                    }
+                  } else if (parsed.type === 'code_generation') {
+                    // 流式代码生成内容
+                    if (parsed.content) {
+                      accumulatedContent += parsed.content;
+                      setMessages(prev => prev.map(msg => 
+                        msg.id === assistantMessageId 
+                          ? { ...msg, content: accumulatedContent }
+                          : msg
+                      ));
+                    }
+                  } else if (parsed.type === 'code_generation_end') {
+                    // 代码生成结束
+                    if (parsed.content) {
+                      accumulatedContent += parsed.content;
+                      setMessages(prev => prev.map(msg => 
+                        msg.id === assistantMessageId 
+                          ? { ...msg, content: accumulatedContent }
+                          : msg
+                      ));
+                    }
+                  } else if (parsed.type === 'execution_result') {
+                    // 代码执行结果
+                    if (parsed.content) {
+                      accumulatedContent += parsed.content;
+                      setMessages(prev => prev.map(msg => 
+                        msg.id === assistantMessageId 
+                          ? { ...msg, content: accumulatedContent }
+                          : msg
+                      ));
+                    }
+                  } else if (parsed.type === 'execution_error') {
+                    // 代码执行错误
+                    if (parsed.content) {
+                      accumulatedContent += parsed.content;
+                      setMessages(prev => prev.map(msg => 
+                        msg.id === assistantMessageId 
+                          ? { ...msg, content: accumulatedContent }
+                          : msg
+                      ));
+                    }
+                  } else if (parsed.type === 'final_answer_start') {
+                    // 最终回答开始
+                    if (parsed.content) {
+                      accumulatedContent += parsed.content;
+                      setMessages(prev => prev.map(msg => 
+                        msg.id === assistantMessageId 
+                          ? { ...msg, content: accumulatedContent }
+                          : msg
+                      ));
+                    }
+                  } else if (parsed.type === 'final_answer') {
+                    // 最终回答内容
+                    if (parsed.content) {
+                      accumulatedContent += parsed.content;
+                      setMessages(prev => prev.map(msg => 
+                        msg.id === assistantMessageId 
+                          ? { ...msg, content: accumulatedContent }
+                          : msg
+                      ));
+                    }
+                  } else if (parsed.type === 'tool_code_generation') {
+                    // 显示生成的代码（保留旧格式兼容性）
+                    const codeContent = `\`\`\`${parsed.language || 'javascript'}\n${parsed.code}\n\`\`\``;
+                    setMessages(prev => prev.map(msg => 
+                      msg.id === assistantMessageId 
+                        ? { ...msg, content: msg.content + '\n\n**生成的代码：**\n' + codeContent }
+                        : msg
+                    ));
+                  } else if (parsed.type === 'tool_execution_result') {
+                    // 显示执行结果（保留旧格式兼容性）
+                    setMessages(prev => prev.map(msg => 
+                      msg.id === assistantMessageId 
+                        ? { ...msg, content: msg.content + '\n\n**执行结果：**\n' + parsed.result }
+                        : msg
+                    ));
                   } else if (parsed.type === 'error') {
                     throw new Error(parsed.error || 'Streaming error');
                   }
@@ -697,61 +879,32 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
   const isInitialState = messages.length === 1 && messages[0].id === '1';
 
   if (isInitialState) {
-    // 初始界面：只显示机器人图像居中
+    // 初始界面：简洁的输入框居中显示
     return (
-      <div className="h-full flex flex-col bg-white dark:bg-gray-800">
-        {/* 机器人图像区域 */}
-        <div className="flex-1 flex items-center justify-center">
-          <div className="flex flex-col items-center space-y-8">
-            {/* 机器人图像 */}
-            <div className="relative">
-              <div className="w-32 h-32 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center shadow-2xl animate-pulse-slow">
-                <AnimatedRobot 
-                  className="w-16 h-16 text-white" 
-                  status={getRobotStatus()}
-                  isActive={true}
-                />
-              </div>
-              {/* 装饰性光环 */}
-              <div className="absolute inset-0 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 opacity-20 scale-110 animate-ping"></div>
-            </div>
-            
-            {/* 欢迎文字 */}
-            <div className="text-center space-y-2">
-              <h1 className="text-2xl font-bold text-gray-800 dark:text-white">
-                {t('chat.welcome')}
-              </h1>
-            </div>
-          </div>
-        </div>
-        
-        {/* 输入区域 - 固定在底部 */}
-        <div className="flex justify-center p-4 flex-shrink-0 bg-white dark:bg-gray-800">
-          <div className="w-full max-w-5xl">
-            <InputArea
-              ref={inputAreaRef}
-              input={input}
-              setInput={setInput}
-              selectedFile={selectedFile}
-              setSelectedFile={setSelectedFile}
-              onSendMessage={handleSendMessage}
-              onKeyPress={handleKeyPress}
-              isLoading={isLoading}
-              currentLanguage={i18n.language}
-              isRecording={isRecording}
-              setIsRecording={setIsRecording}
-              selectedModel={selectedModel}
-              onModelChange={onModelChange}
-              agentMode={agentMode}
-              onAgentModeChange={handleAgentModeChange}
-              onStopGeneration={handleStopGeneration}
-            />
-            <div className="text-center mt-3">
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                {t('chat.aiDisclaimer')}
-              </p>
-            </div>
-          </div>
+      <div className="h-full flex items-center justify-center bg-white dark:bg-gray-800">
+        <div className="w-full max-w-5xl px-4">
+          <InputArea
+            ref={inputAreaRef}
+            input={input}
+            setInput={setInput}
+            selectedFile={selectedFile}
+            setSelectedFile={setSelectedFile}
+            onSendMessage={handleSendMessage}
+            onKeyPress={handleKeyPress}
+            isLoading={isLoading}
+            currentLanguage={i18n.language}
+            isRecording={isRecording}
+            setIsRecording={setIsRecording}
+            selectedModel={selectedModel}
+            onModelChange={onModelChange}
+            agentMode={agentMode}
+            onAgentModeChange={handleAgentModeChange}
+            onStopGeneration={handleStopGeneration}
+            enableSearch={enableSearch}
+            onSearchToggle={handleSearchToggle}
+            enableCodeExecution={enableCodeExecution}
+            onCodeExecutionToggle={handleCodeExecutionToggle}
+          />
         </div>
       </div>
     );
@@ -794,12 +947,11 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
             agentMode={agentMode}
             onAgentModeChange={handleAgentModeChange}
             onStopGeneration={handleStopGeneration}
+            enableSearch={enableSearch}
+            onSearchToggle={handleSearchToggle}
+            enableCodeExecution={enableCodeExecution}
+            onCodeExecutionToggle={handleCodeExecutionToggle}
           />
-          <div className="text-center mt-3">
-            <p className="text-xs text-gray-500 dark:text-gray-400">
-              {t('chat.aiDisclaimer')}
-            </p>
-          </div>
         </div>
       </div>
     </div>
