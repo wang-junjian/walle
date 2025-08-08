@@ -33,6 +33,11 @@ A cutting-edge, multi-modal AI assistant built with Next.js 15, featuring advanc
 - **React 19**: Cutting-edge React features and optimizations
 - **TypeScript**: Full type safety with strict mode enabled
 - **Modern Tooling**: ESLint, Tailwind CSS 4, and optimized bundling
+- **Debug Mode**: Comprehensive logging system for development and troubleshooting
+  - Model call tracking with input/output logging
+  - API request monitoring with performance metrics
+  - Tool execution logging for debugging agent workflows
+  - Configurable log levels and output options
 
 ## �️ Technology Stack
 
@@ -145,6 +150,30 @@ Walle supports multiple OpenAI-compatible AI services:
 - Qwen/QwQ-32B - Advanced reasoning capabilities
 - Qwen/Qwen3-235B-A22B-Thinking-2507 - Enhanced thinking process
 - THUDM/GLM-4.1V-9B-Thinking - Visual reasoning model
+
+### Debug Configuration
+
+Walle includes a comprehensive debug mode for development and troubleshooting. You can enable debug logging by adding the following to your `config.yaml`:
+
+```yaml
+debug:
+  enabled: true              # Enable debug mode
+  logLevel: info             # Log level: debug, info, warn, error
+  logModelCalls: true        # Log AI model interactions
+  logApiRequests: true       # Log API request details
+  logToolExecutions: true    # Log tool execution details
+  outputToFile: false        # Output to file (set true for production)
+  logFilePath: ./debug.log   # Log file path
+```
+
+**Debug Features**:
+- 🔍 **Model Call Tracking**: Monitor AI model requests and responses
+- 📊 **Performance Metrics**: Track response times and token usage
+- 🛠️ **Tool Execution Logs**: Debug agent tool usage and results
+- 🔧 **API Request Monitoring**: Comprehensive request/response logging
+- 📝 **Configurable Output**: Console or file-based logging options
+
+**UI Debug Controls**: Access debug settings through Settings → Developer Options → Debug Settings.
 
 ## 🎯 Usage
 

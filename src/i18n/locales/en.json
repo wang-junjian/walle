@@ -5,6 +5,7 @@
     "welcome": "Hello! I'm Walle, your intelligent assistant.",
     "newChat": "New Chat",
     "sendMessage": "Send message",
+    "stopGeneration": "Stop generation",
     "typeMessage": "Type your message...",
     "uploadImage": "Upload image",
     "attachFile": "Attach file",

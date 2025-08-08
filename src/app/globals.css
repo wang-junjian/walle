@@ -151,6 +151,22 @@ body {
   min-height: 0;
 }
 
+/* 智能体思考内容展开动画，无高度限制 */
+.agent-thoughts-content {
+  transition: all 0.3s ease-in-out;
+}
+
+.agent-thoughts-content.expanded {
+  opacity: 1;
+  max-height: none;
+}
+
+.agent-thoughts-content.collapsed {
+  opacity: 0;
+  max-height: 0;
+  overflow: hidden;
+}
+
 /* 确保页面布局不会出现双重滚动条 */
 html, body {
   overflow: hidden;

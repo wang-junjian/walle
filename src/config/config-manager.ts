@@ -14,6 +14,12 @@ interface ContinueConfig {
     maxTokens?: number;
     temperature?: number;
     roles?: string[];
+    isReasoningModel?: boolean;
+    reasoningConfig?: {
+      enableThinking?: boolean;
+      thinkingBudget?: number;
+    };
+    contextLimitOverride?: number;
   }>;
   speechToTextProvider?: {
     model: string;
@@ -25,6 +31,14 @@ interface ContinueConfig {
     apiBase?: string;
     apiKey?: string;
     voice?: string;
+  };
+  searchProvider?: {
+    provider: 'serper' | 'google' | 'bing';
+    apiKey: string;
+    apiBase?: string;
+    maxResults?: number;
+    language?: string;
+    location?: string;
   };
   contextProviders?: Array<{
     name: string;
@@ -40,6 +54,15 @@ interface ContinueConfig {
     description: string;
   }>;
   experimental?: Record<string, boolean>;
+  debug?: {
+    enabled?: boolean;
+    logLevel?: 'debug' | 'info' | 'warn' | 'error';
+    logModelCalls?: boolean;
+    logApiRequests?: boolean;
+    logToolExecutions?: boolean;
+    outputToFile?: boolean;
+    logFilePath?: string;
+  };
 }
 
 class ConfigManager {
@@ -91,6 +114,29 @@ class ConfigManager {
     );
   }
 
+  getReasoningModels() {
+    return this.getAllModels().filter(model => model.isReasoningModel);
+  }
+
+  isReasoningModel(modelName: string) {
+    const model = this.getModelConfig(modelName);
+    return model?.isReasoningModel || false;
+  }
+
+  getReasoningConfig(modelName: string) {
+    const model = this.getModelConfig(modelName);
+    return model?.reasoningConfig || {
+      enableThinking: false,
+      thinkingBudget: 4096
+    };
+  }
+
+  getActualContextLimit(modelName: string) {
+    const model = this.getModelConfig(modelName);
+    // 如果有覆盖值，使用覆盖值；否则使用配置的 contextLength；最后使用默认值
+    return model?.contextLimitOverride || model?.contextLength || 4096;
+  }
+
   getDefaultModel(role: string) {
     const models = this.getModelsByRole(role);
     return models.length > 0 ? models[0].model : null;
@@ -105,6 +151,31 @@ class ConfigManager {
     return {
       speechToText: config.speechToTextProvider,
       textToSpeech: config.textToSpeechProvider
+    };
+  }
+
+  getSearchConfig() {
+    const config = this.getConfig();
+    return config.searchProvider || {
+      provider: 'serper',
+      apiKey: '',
+      apiBase: 'https://google.serper.dev/search',
+      maxResults: 10,
+      language: 'zh',
+      location: 'china'
+    };
+  }
+
+  getDebugConfig() {
+    const config = this.getConfig();
+    return config.debug || {
+      enabled: false,
+      logLevel: 'info',
+      logModelCalls: false,
+      logApiRequests: false,
+      logToolExecutions: false,
+      outputToFile: false,
+      logFilePath: './debug.log'
     };
   }
 }
@@ -142,4 +213,28 @@ export function getModelConfig(modelName: string) {
 
 export function getSpeechConfig() {
   return getConfigManager().getSpeechConfig();
+}
+
+export function getSearchConfig() {
+  return getConfigManager().getSearchConfig();
+}
+
+export function getDebugConfig() {
+  return getConfigManager().getDebugConfig();
+}
+
+export function getReasoningModels() {
+  return getConfigManager().getReasoningModels();
+}
+
+export function isReasoningModel(modelName: string) {
+  return getConfigManager().isReasoningModel(modelName);
+}
+
+export function getReasoningConfig(modelName: string) {
+  return getConfigManager().getReasoningConfig(modelName);
+}
+
+export function getActualContextLimit(modelName: string) {
+  return getConfigManager().getActualContextLimit(modelName);
 }

@@ -1,6 +1,7 @@
 import { getConfigManager } from '@/config/config-manager';
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
+import { debugLogger } from '@/utils/debug-logger';
 
 // Initialize OpenAI client for speech operations
 const initializeSpeechOpenAI = (speechConfig?: { apiKey?: string; apiBase?: string }) => {
@@ -30,11 +31,14 @@ const initializeSpeechOpenAI = (speechConfig?: { apiKey?: string; apiBase?: stri
 };
 
 export async function POST(request: NextRequest) {
+  const _startTime = Date.now();
   try {
+    debugLogger.info('SPEECH_API', 'Speech API request started');
+    
     const configManager = getConfigManager();
     const speechConfig = configManager.getSpeechConfig();
     
-    console.log('Speech API Debug Info:', {
+    debugLogger.info('SPEECH_API', 'Speech configuration', {
       hasSTT: !!speechConfig.speechToText,
       hasTTS: !!speechConfig.textToSpeech,
       sttModel: speechConfig.speechToText?.model,
@@ -43,6 +47,8 @@ export async function POST(request: NextRequest) {
 
     const formData = await request.formData();
     const action = formData.get('action') as string;
+
+    debugLogger.logApiRequest('/api/speech', 'POST', { action });
 
     if (action === 'transcribe') {
       const audio = formData.get('audio') as File;

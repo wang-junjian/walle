@@ -40,6 +40,9 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
   // 简化：只需要录音状态
   const [isRecording, setIsRecording] = useState(false);
 
+  // 用于控制流式响应的中断
+  const abortControllerRef = useRef<AbortController | null>(null);
+
   // 智能体模式状态
   const [agentMode, setAgentMode] = useState<AgentMode>({ type: 'chat', label: 'Chat' });
 
@@ -114,7 +117,20 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
     }
   }, [messages, isLoading, onUpdateConversation]);
 
+    const handleStopGeneration = useCallback(() => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+      setIsLoading(false);
+    }
+  }, []);
+
   const handleNewChat = () => {
+    // 如果正在生成，先停止
+    if (isLoading) {
+      handleStopGeneration();
+    }
+    
     setMessages([getWelcomeMessage()]);
     setInput('');
     setSelectedFile(null);
@@ -182,6 +198,12 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
   };
 
   const handleRegenerate = async (messageId: string) => {
+    // 如果正在生成，先停止
+    if (isLoading) {
+      handleStopGeneration();
+      return;
+    }
+
     // 找到要重新生成的消息
     const messageIndex = messages.findIndex(msg => msg.id === messageId);
     if (messageIndex === -1 || messageIndex === 0) return;
@@ -211,6 +233,10 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
     setMessages(prev => [...prev, newAssistantMessage]);
 
     try {
+      // 创建 AbortController
+      const abortController = new AbortController();
+      abortControllerRef.current = abortController;
+
       // 准备请求数据
       const formData = new FormData();
       formData.append('message', lastUserMessage.content);
@@ -238,6 +264,7 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
       const response = await fetch('/api/chat', {
         method: 'POST',
         body: formData,
+        signal: abortController.signal, // 添加取消信号
       });
 
       if (!response.ok) {
@@ -254,7 +281,18 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
       if (reader) {
         try {
           while (true) {
-            const { done, value } = await reader.read();
+            let result;
+            try {
+              result = await reader.read();
+            } catch (readError) {
+              // 处理读取过程中的 AbortError
+              if (readError instanceof Error && readError.name === 'AbortError') {
+                break;
+              }
+              throw readError;
+            }
+            
+            const { done, value } = result;
             if (done) break;
 
             const chunk = decoder.decode(value, { stream: true });
@@ -324,6 +362,13 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
       }
     } catch (error) {
       console.error('Error regenerating message:', error);
+      
+      // 检查是否是用户取消的请求
+      if (error instanceof Error && error.name === 'AbortError') {
+        console.log('用户取消了重新生成请求');
+        return;
+      }
+      
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         content: t('chat.error'),
@@ -332,6 +377,7 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
       };
       setMessages(prev => [...prev.slice(0, -1), errorMessage]);
     } finally {
+      abortControllerRef.current = null;
       setIsLoading(false);
       // 标记需要更新对话
       shouldUpdateConversation.current = true;
@@ -399,6 +445,10 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
     setMessages(prev => [...prev, assistantMessage]);
 
     try {
+      // 创建 AbortController
+      const abortController = new AbortController();
+      abortControllerRef.current = abortController;
+
       // 根据模式选择不同的API端点
       const apiEndpoint = agentMode.type === 'agent' ? '/api/agent' : '/api/chat';
 
@@ -423,6 +473,7 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
       const response = await fetch(apiEndpoint, {
         method: 'POST',
         body: formData,
+        signal: abortController.signal, // 添加取消信号
       });
 
       if (!response.ok) {
@@ -440,7 +491,18 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
       if (reader) {
         try {
           while (true) {
-            const { done, value } = await reader.read();
+            let result;
+            try {
+              result = await reader.read();
+            } catch (readError) {
+              // 处理读取过程中的 AbortError
+              if (readError instanceof Error && readError.name === 'AbortError') {
+                break;
+              }
+              throw readError;
+            }
+            
+            const { done, value } = result;
             if (done) break;
 
             const chunk = decoder.decode(value, { stream: true });
@@ -593,6 +655,13 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
       }
     } catch (error) {
       console.error('Error sending message:', error);
+      
+      // 检查是否是用户取消的请求
+      if (error instanceof Error && error.name === 'AbortError') {
+        console.log('用户取消了发送请求');
+        return;
+      }
+      
       const errorMessage: Message = {
         id: (Date.now() + 2).toString(),
         content: t('chat.error'),
@@ -601,6 +670,7 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
       };
       setMessages(prev => [...prev.slice(0, -1), errorMessage]);
     } finally {
+      abortControllerRef.current = null;
       setIsLoading(false);
       // 标记需要更新对话
       shouldUpdateConversation.current = true;
@@ -674,6 +744,7 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
               onModelChange={onModelChange}
               agentMode={agentMode}
               onAgentModeChange={handleAgentModeChange}
+              onStopGeneration={handleStopGeneration}
             />
             <div className="text-center mt-3">
               <p className="text-xs text-gray-500 dark:text-gray-400">
@@ -722,6 +793,7 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
             onModelChange={onModelChange}
             agentMode={agentMode}
             onAgentModeChange={handleAgentModeChange}
+            onStopGeneration={handleStopGeneration}
           />
           <div className="text-center mt-3">
             <p className="text-xs text-gray-500 dark:text-gray-400">

@@ -54,32 +54,34 @@ const AgentThoughtsDisplay = ({ thoughts, isExpanded, onToggleExpanded }: AgentT
   return (
     <div className="border border-purple-200 dark:border-purple-700 rounded-lg bg-purple-50 dark:bg-purple-900/20 overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between min-h-0">
         <button
           onClick={onToggleExpanded}
-          className="flex-1 flex items-center justify-between p-3 hover:bg-purple-100 dark:hover:bg-purple-800/30 transition-colors"
+          className="flex-1 flex items-center justify-between p-3 hover:bg-purple-100 dark:hover:bg-purple-800/30 transition-colors min-w-0"
         >
-          <div className="flex items-center gap-2">
-            <Brain className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-            <span className="font-medium text-purple-800 dark:text-purple-200">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <Brain className="h-5 w-5 text-purple-600 dark:text-purple-400 flex-shrink-0" />
+            <span className="font-medium text-purple-800 dark:text-purple-200 truncate">
               {t('agent.showThoughts')}
             </span>
-            <span className="text-sm text-purple-600 dark:text-purple-400">
+            <span className="text-sm text-purple-600 dark:text-purple-400 flex-shrink-0">
               ({thoughts.length})
             </span>
           </div>
-          {isExpanded ? (
-            <ChevronDown className="h-4 w-4 text-purple-600 dark:text-purple-400" />
-          ) : (
-            <ChevronRight className="h-4 w-4 text-purple-600 dark:text-purple-400" />
-          )}
+          <div className="flex-shrink-0 ml-2">
+            {isExpanded ? (
+              <ChevronDown className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+            ) : (
+              <ChevronRight className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+            )}
+          </div>
         </button>
         
         {/* 简洁模式按钮 - 独立按钮 */}
         {shouldUseCompactMode && (
           <button
             onClick={() => setCompactMode(!compactMode)}
-            className="mr-3 px-2 py-1 text-xs bg-purple-100 dark:bg-purple-800 rounded-md hover:bg-purple-200 dark:hover:bg-purple-700 transition-colors"
+            className="mr-3 px-2 py-1 text-xs bg-purple-100 dark:bg-purple-800 rounded-md hover:bg-purple-200 dark:hover:bg-purple-700 transition-colors flex-shrink-0"
             title={compactMode ? '展开详情' : '简洁模式'}
           >
             {compactMode ? '详细' : '简洁'}
@@ -88,14 +90,16 @@ const AgentThoughtsDisplay = ({ thoughts, isExpanded, onToggleExpanded }: AgentT
       </div>
 
       {/* Content */}
-      <div className={`border-t border-purple-200 dark:border-purple-700 transition-all duration-300 ease-in-out overflow-hidden ${
-        isExpanded ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'
+      <div className={`border-t border-purple-200 dark:border-purple-700 agent-thoughts-content ${
+        isExpanded ? 'expanded' : 'collapsed'
       }`}>
-        <div className="transition-all duration-300 ease-in-out">
-          {thoughts.map((thought) => (
-            <ThoughtItem key={thought.id} thought={thought} compactMode={compactMode} />
-          ))}
-        </div>
+        {isExpanded && (
+          <div className="space-y-0">
+            {thoughts.map((thought) => (
+              <ThoughtItem key={thought.id} thought={thought} compactMode={compactMode} />
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -186,9 +190,9 @@ const ThoughtItem = ({ thought, compactMode = false }: ThoughtItemProps) => {
             : 'hover:bg-purple-50 dark:hover:bg-purple-800/20'
         }`}
       >
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 min-w-0 flex-1">
           {getTypeIcon(thought.type)}
-          <span className={`font-medium text-sm transition-colors duration-200 ${
+          <span className={`font-medium text-sm transition-colors duration-200 break-words ${
             thought.status === 'completed' 
               ? 'text-green-800 dark:text-green-200' 
               : 'text-gray-800 dark:text-gray-200'
@@ -200,11 +204,13 @@ const ThoughtItem = ({ thought, compactMode = false }: ThoughtItemProps) => {
           </span>
           {getStatusIcon(thought.status)}
         </div>
-        {isExpanded ? (
-          <ChevronDown className="h-3 w-3 text-gray-500 transition-transform duration-200" />
-        ) : (
-          <ChevronRight className="h-3 w-3 text-gray-500 transition-transform duration-200" />
-        )}
+        <div className="flex-shrink-0 ml-2">
+          {isExpanded ? (
+            <ChevronDown className="h-3 w-3 text-gray-500 transition-transform duration-200" />
+          ) : (
+            <ChevronRight className="h-3 w-3 text-gray-500 transition-transform duration-200" />
+          )}
+        </div>
       </button>
 
       {/* Thought Content */}

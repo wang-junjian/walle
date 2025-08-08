@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useCallback, useEffect, useImperativeHandle, forwardRef } from 'react';
-import { Mic, Image as ImageIcon, X, Loader2, MessageSquare, Zap } from 'lucide-react';
+import { Mic, Image as ImageIcon, X, Loader2, MessageSquare, Zap, Square } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { VoiceRecorder, transcribeAudio, getWebSpeechLanguage, isSpeechRecognitionSupported } from '@/utils/voice';
 import { AgentMode } from '@/types/chat';
@@ -29,6 +29,7 @@ interface InputAreaProps {
   onModelChange?: (model: string) => void;
   agentMode?: AgentMode;
   onAgentModeChange?: (mode: AgentMode) => void;
+  onStopGeneration?: () => void;
 }
 
 export interface InputAreaRef {
@@ -49,7 +50,8 @@ export const InputArea = forwardRef<InputAreaRef, InputAreaProps>(({
   selectedModel,
   onModelChange,
   agentMode,
-  onAgentModeChange
+  onAgentModeChange,
+  onStopGeneration
 }, ref) => {
   const { t } = useTranslation();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -72,29 +74,31 @@ export const InputArea = forwardRef<InputAreaRef, InputAreaProps>(({
     }
   }), []);
   
-  // 处理按键事件，确保发送后重新聚焦
-  const handleKeyPress = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
+  // 处理发送按钮点击，确保发送后重新聚焦
+  const handleSendClick = useCallback(() => {
+    if (isLoading && onStopGeneration) {
+      // 如果正在加载，停止生成
+      onStopGeneration();
+    } else {
+      // 否则发送消息
       onSendMessage();
       // 使用较长的延迟确保消息发送流程完成后再聚焦
       setTimeout(() => {
         textareaRef.current?.focus();
       }, 200);
+    }
+  }, [isLoading, onStopGeneration, onSendMessage]);
+  
+  // 处理按键事件，确保发送后重新聚焦
+  const handleKeyPress = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendClick(); // 使用统一的发送逻辑
     } else {
       // 对于其他按键，调用原来的处理器
       onKeyPress(e);
     }
-  }, [onSendMessage, onKeyPress]);
-  
-  // 处理发送按钮点击，确保发送后重新聚焦
-  const handleSendClick = useCallback(() => {
-    onSendMessage();
-    // 使用较长的延迟确保消息发送流程完成后再聚焦
-    setTimeout(() => {
-      textareaRef.current?.focus();
-    }, 200);
-  }, [onSendMessage]);
+  }, [handleSendClick, onKeyPress]);
   
   // 使用 ref 来获取最新的 input 值
   const inputRef = useRef(input);
@@ -342,7 +346,6 @@ export const InputArea = forwardRef<InputAreaRef, InputAreaProps>(({
                 maxHeight: '200px',
                 lineHeight: '1.5'
               }}
-              disabled={isLoading}
               readOnly={isRecording}
             />
             
@@ -485,16 +488,18 @@ export const InputArea = forwardRef<InputAreaRef, InputAreaProps>(({
               {/* 发送按钮 */}
               <button
                 onClick={handleSendClick}
-                disabled={!displayText.trim() && !selectedFile || isLoading}
+                disabled={!isLoading && !displayText.trim() && !selectedFile}
                 className={`p-2 rounded-full transition-colors ${
-                  (!displayText.trim() && !selectedFile) || isLoading
+                  isLoading
+                    ? 'text-white bg-red-500 hover:bg-red-600 dark:bg-red-600 dark:hover:bg-red-700'
+                    : (!displayText.trim() && !selectedFile)
                     ? 'text-gray-400 bg-gray-100 dark:bg-gray-600 cursor-not-allowed'
                     : 'text-white bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700'
                 }`}
-                title={t('chat.sendMessage')}
+                title={isLoading ? t('chat.stopGeneration') : t('chat.sendMessage')}
               >
                 {isLoading ? (
-                  <Loader2 className="h-5 w-5 animate-spin" />
+                  <Square className="h-5 w-5" />
                 ) : (
                   <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>

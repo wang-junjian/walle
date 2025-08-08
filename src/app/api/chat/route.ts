@@ -1,6 +1,7 @@
-import { getConfigManager } from '@/config/config-manager';
+import { getConfigManager, isReasoningModel, getReasoningConfig, getActualContextLimit } from '@/config/config-manager';
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
+import { debugLogger } from '@/utils/debug-logger';
 
 // Constants for validation
 const MAX_MESSAGE_LENGTH = 10000;
@@ -50,7 +51,31 @@ const validateImage = (imageFile: File | null): string | null => {
 };
 
 export async function POST(request: NextRequest) {
+  const startTime = Date.now();
+  
+  // Declare variables that need to be accessible in error handling
+  let modelToUse = 'GLM-4.5-Flash'; // Default model
+  let modelConfig: {
+    model: string;
+    name?: string;
+    provider: string;
+    apiBase?: string;
+    apiKey?: string;
+    contextLength?: number;
+    maxTokens?: number;
+    temperature?: number;
+    roles?: string[];
+    isReasoningModel?: boolean;
+    reasoningConfig?: {
+      enableThinking?: boolean;
+      thinkingBudget?: number;
+    };
+    contextLimitOverride?: number;
+  } | null = null;
+  
   try {
+    debugLogger.info('CHAT_API', 'Chat API request started');
+    
     // Parse form data with error handling
     const formData = await request.formData();
     const message = formData.get('message') as string;
@@ -58,18 +83,30 @@ export async function POST(request: NextRequest) {
     const conversationHistory = formData.get('history') as string;
     const selectedModel = formData.get('model') as string;
 
+    debugLogger.logApiRequest('/api/chat', 'POST', {
+      hasMessage: !!message,
+      messageLength: message?.length || 0,
+      hasImage: !!imageFile,
+      imageSize: imageFile?.size || 0,
+      selectedModel: selectedModel || 'default',
+      hasHistory: !!conversationHistory
+    });
+
     // Validate inputs
     const messageError = validateMessage(message);
     if (messageError) {
+      debugLogger.warn('CHAT_API', 'Message validation failed', { error: messageError });
       return NextResponse.json({ error: messageError }, { status: 400 });
     }
 
     const imageError = validateImage(imageFile);
     if (imageError) {
+      debugLogger.warn('CHAT_API', 'Image validation failed', { error: imageError });
       return NextResponse.json({ error: imageError }, { status: 400 });
     }
 
     if (!message && !imageFile) {
+      debugLogger.warn('CHAT_API', 'No message or image provided');
       return NextResponse.json(
         { error: 'Either message or image is required' },
         { status: 400 }
@@ -80,8 +117,8 @@ export async function POST(request: NextRequest) {
     const allModels = configManager.getAllModels();
     
     // Determine which model to use
-    let modelToUse = 'GLM-4.5-Flash'; // Default model
-    let modelConfig = null;
+    modelToUse = 'GLM-4.5-Flash'; // Default model
+    modelConfig = null;
     
     // If a specific model is selected and it exists in config, use it
     if (selectedModel) {
@@ -101,9 +138,8 @@ export async function POST(request: NextRequest) {
     // Initialize OpenAI client with the selected model's config
     const openai = initializeOpenAI(modelConfig);
     
-    console.log('Chat API Debug Info:');
-    console.log('- Selected Model:', modelToUse);
-    console.log('- Model Config:', {
+    debugLogger.info('CHAT_API', 'Model configuration', {
+      selectedModel: modelToUse,
       apiBase: modelConfig?.apiBase,
       hasApiKey: !!modelConfig?.apiKey,
       provider: modelConfig?.provider
@@ -131,8 +167,13 @@ export async function POST(request: NextRequest) {
             content: msg.content
           }));
         baseMessages.push(...previousMessages);
+        debugLogger.debug('CHAT_API', 'Added conversation history', { 
+          historyLength: previousMessages.length 
+        });
       } catch (error) {
-        console.error('Error parsing conversation history:', error);
+        debugLogger.error('CHAT_API', 'Error parsing conversation history', { 
+          error: error instanceof Error ? error.message : 'Unknown error' 
+        });
       }
     }
 
@@ -166,40 +207,109 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    // Calculate safe max_tokens based on model's context length and input
+    const calculateSafeMaxTokens = (modelConfig: { contextLength?: number; maxTokens?: number } | null, inputTokensEstimate: number = 100) => {
+      const contextLength = modelConfig?.contextLength || 4096;
+      const configuredMaxTokens = modelConfig?.maxTokens || 1000;
+      
+      // 从配置中获取实际的上下文限制
+      const actualContextLimit = getActualContextLimit(modelToUse);
+      
+      // Reserve tokens for input, safety margin, and ensure we don't exceed actual limits
+      const maxOutputTokens = Math.max(
+        Math.min(
+          configuredMaxTokens, 
+          actualContextLimit - inputTokensEstimate - 200, // More conservative margin
+          8192 // Conservative max for most models
+        ),
+        100 // Minimum output tokens
+      );
+      
+      debugLogger.debug('CHAT_API', 'Token calculation', {
+        model: modelToUse,
+        contextLength,
+        actualContextLimit,
+        configuredMaxTokens,
+        inputTokensEstimate,
+        calculatedMaxTokens: maxOutputTokens
+      });
+      
+      return maxOutputTokens;
+    };
+
+    // Estimate input tokens (rough approximation: 1 token ≈ 4 characters)
+    const inputText = baseMessages.map(msg => 
+      typeof msg.content === 'string' ? msg.content : 
+      Array.isArray(msg.content) ? msg.content.map(c => c.type === 'text' ? c.text || '' : '').join('') : ''
+    ).join(' ');
+    const estimatedInputTokens = Math.ceil(inputText.length / 4);
+
+    const safeMaxTokens = calculateSafeMaxTokens(modelConfig, estimatedInputTokens);
+
     // Call OpenAI API with streaming
     const requestOptions: Record<string, unknown> = {
       model: modelToUse, // Use the selected or configured model
       messages: baseMessages,
-      max_tokens: 1000,
-      temperature: 0.7,
+      max_tokens: safeMaxTokens,
+      temperature: modelConfig?.temperature || 0.7,
       stream: true,
     };
 
-    // 检查是否是推理模型，根据 SiliconFlow 官方文档
-    // 只包含实际支持的推理模型
-    const reasoningModels = [
-      'Qwen/QwQ-32B', 
-      'Qwen/Qwen3-235B-A22B-Thinking-2507',
-      'THUDM/GLM-4.1V-9B-Thinking',
-    ];
-    const isReasoningModel = reasoningModels.includes(modelToUse);
+    // 检查是否是推理模型，从配置中获取
+    const isReasoning = isReasoningModel(modelToUse);
     
-    if (isReasoningModel) {
-      // enable_thinking 仅适用于 Qwen3 和 Hunyuan 模型
-      if (modelToUse.includes('Qwen3') || modelToUse.includes('Hunyuan')) {
+    if (isReasoning) {
+      const reasoningConfig = getReasoningConfig(modelToUse);
+      
+      // 根据配置决定是否启用 thinking 功能
+      if (reasoningConfig.enableThinking) {
         requestOptions.enable_thinking = true;
       }
-      // thinking_budget 适用于所有推理模型
-      requestOptions.thinking_budget = 4096;
-      console.log(`启用推理模式，模型: ${modelToUse}`);
+      
+      // 设置 thinking budget
+      if (reasoningConfig.thinkingBudget) {
+        requestOptions.thinking_budget = reasoningConfig.thinkingBudget;
+      }
+      
+      debugLogger.info('CHAT_API', 'Enabled reasoning mode', { 
+        model: modelToUse,
+        enable_thinking: requestOptions.enable_thinking,
+        thinking_budget: requestOptions.thinking_budget
+      });
     }
+
+    // 参数验证
+    if (safeMaxTokens <= 0) {
+      throw new Error(`Invalid max_tokens: ${safeMaxTokens}`);
+    }
+    
+    if (!modelConfig?.apiKey) {
+      throw new Error(`No API key found for model: ${modelToUse}`);
+    }
+    
+    if (!modelConfig?.apiBase) {
+      throw new Error(`No API base URL found for model: ${modelToUse}`);
+    }
+
+    // Log model call input
+    debugLogger.logModelCall(modelToUse, {
+      messages: baseMessages,
+      ...requestOptions
+    });
+
+    debugLogger.info('CHAT_API', 'Making API request', {
+      model: modelToUse,
+      apiBase: modelConfig?.apiBase,
+      requestOptionsKeys: Object.keys(requestOptions),
+      messagesCount: baseMessages.length
+    });
 
     const stream = await openai.chat.completions.create(requestOptions as unknown as OpenAI.ChatCompletionCreateParams);
 
     // Track timing and tokens for statistics
-    const startTime = Date.now();
     let inputTokens = 0;
     let outputTokens = 0;
+    let fullResponse = '';  // Track full response for logging
 
     // Create a readable stream for the response
     const encoder = new TextEncoder();
@@ -227,16 +337,22 @@ export async function POST(request: NextRequest) {
                   reasoning_content: reasoningContent,
                 });
                 controller.enqueue(encoder.encode(`data: ${reasoningData}\n\n`));
-                // console.log('发送推理内容:', reasoningContent.substring(0, 100) + '...');
+                debugLogger.logStreamEvent('reasoning_content', { 
+                  contentLength: reasoningContent.length 
+                });
               }
               
               if (delta?.content) {
+                fullResponse += delta.content;  // Accumulate response
                 // Send the content chunk
                 const data = JSON.stringify({
                   type: 'content',
                   content: delta.content,
                 });
                 controller.enqueue(encoder.encode(`data: ${data}\n\n`));
+                debugLogger.logStreamEvent('content_chunk', { 
+                  chunkLength: delta.content.length 
+                });
               }
               
               // Check if this is the last chunk
@@ -244,6 +360,27 @@ export async function POST(request: NextRequest) {
                 const endTime = Date.now();
                 const duration = (endTime - startTime) / 1000; // Convert to seconds
                 const tokensPerSecond = outputTokens > 0 ? (outputTokens / duration).toFixed(2) : '0';
+                
+                // Log model call completion
+                debugLogger.logModelCall(modelToUse, {
+                  messages: baseMessages,
+                  ...requestOptions
+                }, {
+                  content: fullResponse,
+                  inputTokens,
+                  outputTokens,
+                  totalTokens: inputTokens + outputTokens,
+                  duration: duration.toFixed(2),
+                  tokensPerSecond,
+                  finishReason: chunk.choices[0].finish_reason
+                });
+                
+                debugLogger.logPerformance('chat_completion', endTime - startTime, {
+                  model: modelToUse,
+                  inputTokens,
+                  outputTokens,
+                  tokensPerSecond
+                });
                 
                 // Send final statistics
                 const statsData = JSON.stringify({
@@ -265,6 +402,10 @@ export async function POST(request: NextRequest) {
           }
         } catch (error) {
           console.error('Streaming error:', error);
+          debugLogger.error('CHAT_API', 'Streaming error', { 
+            error: error instanceof Error ? error.message : 'Unknown error',
+            stack: error instanceof Error ? error.stack : undefined
+          });
           const errorData = JSON.stringify({
             type: 'error',
             error: 'Streaming failed',
@@ -288,16 +429,54 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Chat API error:', error);
+    const endTime = Date.now();
+    debugLogger.logPerformance('chat_api_total', endTime - startTime);
+    debugLogger.error('CHAT_API', 'Chat API error', { 
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined
+    });
     
     // Handle specific OpenAI errors
     if (error instanceof OpenAI.APIError) {
+      debugLogger.error('CHAT_API', 'OpenAI API error', {
+        status: error.status,
+        message: error.message,
+        type: error.type,
+        code: (error as unknown as { code?: string })?.code,
+        param: (error as unknown as { param?: string })?.param,
+        model: modelToUse,
+        apiBase: modelConfig?.apiBase
+      });
+      
+      // Provide more specific error messages based on status code
+      let errorMessage = 'AI service error';
+      let statusCode = 500;
+      
+      if (error.status === 400) {
+        errorMessage = 'Invalid request format or parameters';
+        statusCode = 400;
+      } else if (error.status === 401) {
+        errorMessage = 'Invalid API key or authentication failed';
+        statusCode = 401;
+      } else if (error.status === 403) {
+        errorMessage = 'Access forbidden - check your API permissions';
+        statusCode = 403;
+      } else if (error.status === 404) {
+        errorMessage = 'Model or endpoint not found';
+        statusCode = 404;
+      } else if (error.status === 429) {
+        errorMessage = 'Rate limit exceeded - please try again later';
+        statusCode = 429;
+      }
+      
       return NextResponse.json(
         { 
-          error: 'AI service error', 
-          details: error.message 
+          error: errorMessage,
+          details: error.message,
+          model: modelToUse,
+          status: error.status
         },
-        { status: 500 }
+        { status: statusCode }
       );
     }
 

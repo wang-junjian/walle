@@ -27,6 +27,7 @@ export function ChatToolbar({ message, selectedVoice, onRegenerate }: ChatToolba
   const [isPlaying, setIsPlaying] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
   const [showTokenStats, setShowTokenStats] = useState(false);
+  const [tokenStatsSticky, setTokenStatsSticky] = useState(false);
 
   // 检查音频播放状态
   useEffect(() => {
@@ -123,8 +124,8 @@ export function ChatToolbar({ message, selectedVoice, onRegenerate }: ChatToolba
     if (!message.stats) return null;
 
     return (
-      <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 z-10">
-        <div className="bg-gray-900 text-white text-xs rounded-lg p-3 shadow-lg min-w-48">
+      <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 z-50">
+        <div className="bg-gray-900 dark:bg-gray-800 text-white text-xs rounded-lg p-3 shadow-2xl min-w-48 border border-gray-700 dark:border-gray-600">
           <div className="flex items-center gap-1 mb-2 font-medium">
             <BarChart3 className="h-3 w-3" />
             <span>{t('stats.tokenStatistics')}</span>
@@ -152,7 +153,7 @@ export function ChatToolbar({ message, selectedVoice, onRegenerate }: ChatToolba
             </div>
           </div>
           {/* 箭头 */}
-          <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
+          <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900 dark:border-t-gray-800"></div>
         </div>
       </div>
     );
@@ -223,14 +224,24 @@ export function ChatToolbar({ message, selectedVoice, onRegenerate }: ChatToolba
       {message.stats && (
         <div className="relative">
           <button
-            onMouseEnter={() => setShowTokenStats(true)}
-            onMouseLeave={() => setShowTokenStats(false)}
-            className="p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+            onClick={() => {
+              setTokenStatsSticky(!tokenStatsSticky);
+              setShowTokenStats(!tokenStatsSticky);
+            }}
+            onMouseEnter={() => !tokenStatsSticky && setShowTokenStats(true)}
+            onMouseLeave={() => !tokenStatsSticky && setShowTokenStats(false)}
+            className={`p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors ${
+              tokenStatsSticky ? 'bg-blue-100 dark:bg-blue-800' : ''
+            }`}
             title={t('toolbar.tokenStats')}
           >
-            <BarChart3 className="h-4 w-4 opacity-75 hover:opacity-100" />
+            <BarChart3 className={`h-4 w-4 ${
+              tokenStatsSticky 
+                ? 'text-blue-600 dark:text-blue-400' 
+                : 'opacity-75 hover:opacity-100'
+            }`} />
           </button>
-          {showTokenStats && <TokenStatsTooltip />}
+          {(showTokenStats || tokenStatsSticky) && <TokenStatsTooltip />}
         </div>
       )}
     </div>

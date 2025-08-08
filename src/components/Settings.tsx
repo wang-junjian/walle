@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { ModelSelector } from './ModelSelector';
 import { LanguageSelector } from './LanguageSelector';
 import VoiceSelector from './VoiceSelector';
+import { DebugSettings } from './DebugSettings';
 
 // 内联默认语音配置
 const DEFAULT_VOICE = 'anna';
@@ -20,6 +21,7 @@ export function Settings({ selectedModel, onModelChange }: SettingsProps) {
   const [darkMode, setDarkMode] = useState(false);
   const [autoSave, setAutoSave] = useState(true);
   const [soundEnabled, setSoundEnabled] = useState(true);
+  const [showDebugSettings, setShowDebugSettings] = useState(false);
 
   // Load settings from localStorage on mount
   useEffect(() => {
@@ -300,6 +302,39 @@ export function Settings({ selectedModel, onModelChange }: SettingsProps) {
           </div>
         </section>
 
+        {/* Debug Settings */}
+        <section>
+          <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">
+            开发者选项
+          </h3>
+          <div className="space-y-4">
+            <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+              <div className="flex items-start space-x-3">
+                <div className="flex-shrink-0">
+                  <svg className="w-5 h-5 text-yellow-600 dark:text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.98-.833-2.75 0L3.063 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                  </svg>
+                </div>
+                <div className="flex-1">
+                  <h4 className="text-sm font-medium text-yellow-800 dark:text-yellow-200">
+                    调试模式
+                  </h4>
+                  <p className="text-sm text-yellow-700 dark:text-yellow-300 mt-1">
+                    启用调试模式可以记录模型调用、API请求等详细信息，帮助开发者分析问题。
+                    注意：调试日志可能包含敏感信息，请谨慎使用。
+                  </p>
+                  <button
+                    onClick={() => setShowDebugSettings(true)}
+                    className="mt-3 px-3 py-1 bg-yellow-600 hover:bg-yellow-700 text-white text-sm rounded transition-colors duration-200"
+                  >
+                    调试设置
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
         {/* About */}
         <section>
           <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">
@@ -324,6 +359,11 @@ export function Settings({ selectedModel, onModelChange }: SettingsProps) {
         </section>
       </div>
     </div>
+    
+    {/* Debug Settings Modal */}
+    {showDebugSettings && (
+      <DebugSettings onClose={() => setShowDebugSettings(false)} />
+    )}
     </div>
   );
 }

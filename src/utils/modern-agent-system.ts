@@ -1,6 +1,13 @@
 import OpenAI from 'openai';
 import { AgentThought } from '@/types/chat';
 import { AVAILABLE_TOOLS, selectToolsForTask, Tool } from '@/utils/agent-tools';
+import { getModelConfig } from '@/config/config-manager';
+
+interface ModelConfig {
+  maxTokens?: number;
+  temperature?: number;
+  contextLength?: number;
+}
 
 // 智能体基类
 export abstract class BaseAgent {
@@ -8,12 +15,64 @@ export abstract class BaseAgent {
   protected model: string;
   protected language: string;
   protected availableTools: Record<string, Tool>;
+  protected modelConfig: ModelConfig;
   
   constructor(openai: OpenAI, model: string, language: string = 'zh') {
     this.openai = openai;
     this.model = model;
     this.language = language;
     this.availableTools = AVAILABLE_TOOLS;
+    
+    // 获取模型配置
+    const configFromFile = getModelConfig(model);
+    this.modelConfig = {
+      maxTokens: configFromFile?.maxTokens || 1000,
+      temperature: configFromFile?.temperature || 0.7,
+      contextLength: configFromFile?.contextLength || 32768
+    };
+  }
+  
+  // 获取适合特定任务的参数
+  protected getTaskParams(taskType: 'observe' | 'think' | 'action' | 'reflect' | 'summary') {
+    const baseMaxTokens = this.modelConfig.maxTokens || 1000;
+    const baseTemperature = this.modelConfig.temperature || 0.7;
+    const contextLength = this.modelConfig.contextLength || 4096;
+    
+    // 确保 max_tokens 不超过上下文长度的合理比例，为输入预留空间
+    const safeMaxTokens = Math.min(baseMaxTokens, Math.floor(contextLength * 0.8)); // 使用上下文的80%作为最大输出
+    
+    switch (taskType) {
+      case 'observe':
+        return {
+          max_tokens: Math.min(safeMaxTokens, 800),
+          temperature: Math.min(baseTemperature, 0.3) // 观察需要较低温度
+        };
+      case 'think':
+        return {
+          max_tokens: Math.min(safeMaxTokens, 1500),
+          temperature: Math.min(baseTemperature, 0.4) // 思考稍微提高创造性
+        };
+      case 'action':
+        return {
+          max_tokens: Math.min(safeMaxTokens, 800),
+          temperature: Math.min(baseTemperature, 0.3) // 执行需要精确性
+        };
+      case 'reflect':
+        return {
+          max_tokens: Math.min(safeMaxTokens, 800),
+          temperature: Math.min(baseTemperature, 0.3) // 反思需要理性
+        };
+      case 'summary':
+        return {
+          max_tokens: Math.min(safeMaxTokens, 300),
+          temperature: Math.min(baseTemperature, 0.2) // 总结需要简洁准确
+        };
+      default:
+        return {
+          max_tokens: Math.min(safeMaxTokens, 1000),
+          temperature: baseTemperature
+        };
+    }
   }
   
   abstract getName(): string;
@@ -59,11 +118,11 @@ Please analyze from a professional perspective:
 Please provide a concise but in-depth analysis.`;
     
     try {
+      const taskParams = this.getTaskParams('observe');
       const response = await this.openai.chat.completions.create({
         model: this.model,
         messages: [{ role: 'user', content: analysisPrompt }],
-        max_tokens: 800,
-        temperature: 0.3,
+        ...taskParams,
       });
       
       thought.content = response.choices[0]?.message?.content || thought.content;
@@ -124,11 +183,11 @@ Please analyze from a professional perspective:
 Please provide a concise but in-depth analysis.`;
     
     try {
+      const taskParams = this.getTaskParams('observe');
       const response = await this.openai.chat.completions.create({
         model: this.model,
         messages: [{ role: 'user', content: analysisPrompt }],
-        max_tokens: 800,
-        temperature: 0.3,
+        ...taskParams,
         stream: true,
       });
       
@@ -218,11 +277,11 @@ Please reply in JSON format:
 }`;
     
     try {
+      const taskParams = this.getTaskParams('think');
       const response = await this.openai.chat.completions.create({
         model: this.model,
         messages: [{ role: 'user', content: thinkingPrompt }],
-        max_tokens: 1500,
-        temperature: 0.4,
+        ...taskParams,
       });
       
       const result = response.choices[0]?.message?.content || '';
@@ -304,11 +363,11 @@ Please elaborate your thinking process step by step, including:
 Please develop your thoughts clearly step by step, no JSON format needed.`;
     
     try {
+      const taskParams = this.getTaskParams('think');
       const response = await this.openai.chat.completions.create({
         model: this.model,
         messages: [{ role: 'user', content: thinkingPrompt }],
-        max_tokens: 1500,
-        temperature: 0.4,
+        ...taskParams,
         stream: true,
       });
       
@@ -359,7 +418,7 @@ Please develop your thoughts clearly step by step, no JSON format needed.`;
         }
       } else {
         // 根据用户消息选择工具
-        const selectedTools = selectToolsForTask(userMessage);
+        const selectedTools = await selectToolsForTask(userMessage);
         
         if (selectedTools.length === 0) {
           thought.content = this.language === 'zh' ? '未找到适合的工具执行此操作' : 'No suitable tools found for this action';
@@ -428,7 +487,7 @@ Please develop your thoughts clearly step by step, no JSON format needed.`;
           return thought;
         }
       } else {
-        const selectedTools = selectToolsForTask(userMessage);
+        const selectedTools = await selectToolsForTask(userMessage);
         
         if (selectedTools.length === 0) {
           thought.content = this.language === 'zh' ? '未找到适合的工具执行此操作' : 'No suitable tools found for this action';
@@ -522,11 +581,11 @@ Please analyze:
 Please provide a concise reflection summary.`;
     
     try {
+      const taskParams = this.getTaskParams('reflect');
       const response = await this.openai.chat.completions.create({
         model: this.model,
         messages: [{ role: 'user', content: reflectionPrompt }],
-        max_tokens: 600,
-        temperature: 0.3,
+        ...taskParams,
       });
       
       const reflection = response.choices[0]?.message?.content || '';
@@ -536,6 +595,7 @@ Please provide a concise reflection summary.`;
         `基于以上反思，请提供1-2条具体的改进建议：` :
         `Based on the above reflection, please provide 1-2 specific improvement suggestions:`;
       
+      const summaryParams = this.getTaskParams('summary');
       const improvementResponse = await this.openai.chat.completions.create({
         model: this.model,
         messages: [
@@ -543,8 +603,7 @@ Please provide a concise reflection summary.`;
           { role: 'assistant', content: reflection },
           { role: 'user', content: improvementPrompt }
         ],
-        max_tokens: 300,
-        temperature: 0.3,
+        ...summaryParams,
       });
       
       thought.content = reflection;
@@ -610,11 +669,11 @@ Please analyze in detail:
 Please develop your thinking process step by step.`;
     
     try {
+      const taskParams = this.getTaskParams('reflect');
       const response = await this.openai.chat.completions.create({
         model: this.model,
         messages: [{ role: 'user', content: reflectionPrompt }],
-        max_tokens: 800,
-        temperature: 0.3,
+        ...taskParams,
         stream: true,
       });
       
@@ -644,25 +703,233 @@ Please develop your thinking process step by step.`;
   
   // 生成工具输入
   private async generateToolInput(userMessage: string, tool: Tool): Promise<Record<string, unknown>> {
+    // 为不同工具生成特定的输入参数
+    switch (tool.name) {
+      case 'web_search':
+        return this.generateSearchInput(userMessage);
+      case 'code_execution':
+        return this.generateCodeExecutionInput(userMessage);
+      default:
+        return this.generateGenericToolInput(userMessage, tool);
+    }
+  }
+  
+  private async generateSearchInput(userMessage: string): Promise<Record<string, unknown>> {
+    // 提取搜索关键词和类型
+    let searchType: 'general' | 'technical' | 'news' | 'academic' = 'general';
+    
+    if (/技术|api|文档|documentation|technical/i.test(userMessage)) {
+      searchType = 'technical';
+    } else if (/新闻|news|最新|latest|动态/i.test(userMessage)) {
+      searchType = 'news';
+    } else if (/学术|论文|research|academic|paper/i.test(userMessage)) {
+      searchType = 'academic';
+    }
+    
+    // 提取搜索查询
+    let query = userMessage;
+    
+    // 简化查询，移除一些停用词和指示词
+    const stopWords = ['搜索', '查找', '告诉我', '什么是', 'search', 'find', 'tell me', 'what is'];
+    for (const stopWord of stopWords) {
+      query = query.replace(new RegExp(stopWord, 'gi'), '').trim();
+    }
+    
+    return {
+      query: query || userMessage,
+      searchType,
+      maxResults: 5,
+      language: this.language === 'zh' ? 'zh' : 'en'
+    };
+  }
+  
+  private async generateCodeExecutionInput(userMessage: string): Promise<Record<string, unknown>> {
+    // 提取代码块
+    const codeBlockRegex = /```(\w+)?\n?([\s\S]*?)```/;
+    const codeMatch = userMessage.match(codeBlockRegex);
+    
+    if (codeMatch) {
+      const language = codeMatch[1] || 'javascript';
+      const code = codeMatch[2].trim();
+      
+      return {
+        code,
+        language: this.normalizeLanguage(language),
+        enableDebug: /debug|调试/.test(userMessage.toLowerCase()),
+        timeout: 5000
+      };
+    }
+    
+    // 如果没有代码块，尝试识别内联代码或表达式
+    const inlineCodeRegex = /`([^`]+)`/;
+    const inlineMatch = userMessage.match(inlineCodeRegex);
+    
+    if (inlineMatch) {
+      return {
+        code: inlineMatch[1],
+        language: 'javascript',
+        enableDebug: false,
+        timeout: 5000
+      };
+    }
+    
+    // 纯数学表达式检测（增强版）
+    const mathOnlyPatterns = [
+      /^\s*[\d\s+\-*/().=]+\s*$/, // 纯数学表达式
+      /^\s*[\d\s+\-*/().]+\s*=\s*$/, // 带等号的数学表达式
+      /^\s*计算[:：]?\s*([\d\s+\-*/().]+)/, // "计算: 1+2*3"
+      /^\s*求解?[:：]?\s*([\d\s+\-*/().]+)/, // "求: 1+2"
+    ];
+    
+    for (const pattern of mathOnlyPatterns) {
+      const match = userMessage.match(pattern);
+      if (match) {
+        let expression = match[1] || match[0];
+        // 清理表达式，移除不必要的字符
+        expression = expression.replace(/[=\s计算求解：:]/g, '').trim();
+        
+        // 确保表达式有效
+        if (/^[\d+\-*/.()]+$/.test(expression)) {
+          return {
+            code: `console.log("计算结果:", ${expression});`,
+            language: 'javascript',
+            enableDebug: false,
+            timeout: 5000
+          };
+        }
+      }
+    }
+    
+    // 复杂数学问题检测
+    const complexMathRegex = /(?:计算|求|算出?).*?([\d\s+\-*/().]+)/;
+    const complexMatch = userMessage.match(complexMathRegex);
+    
+    if (complexMatch) {
+      const expression = complexMatch[1].replace(/\s/g, '');
+      if (/^[\d+\-*/.()]+$/.test(expression)) {
+        return {
+          code: `
+// 数学计算
+const result = ${expression};
+console.log("表达式: ${expression}");
+console.log("计算结果:", result);
+          `.trim(),
+          language: 'javascript',
+          enableDebug: false,
+          timeout: 5000
+        };
+      }
+    }
+    
+    // 数据分析相关代码生成
+    if (/数据分析|统计|平均值|求和/.test(userMessage)) {
+      return {
+        code: `
+// 数据分析示例
+const data = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+const sum = data.reduce((a, b) => a + b, 0);
+const mean = sum / data.length;
+const max = Math.max(...data);
+const min = Math.min(...data);
+
+console.log("数据:", data);
+console.log("总和:", sum);
+console.log("平均值:", mean.toFixed(2));
+console.log("最大值:", max);
+console.log("最小值:", min);
+        `.trim(),
+        language: 'javascript',
+        enableDebug: true,
+        timeout: 5000
+      };
+    }
+    
+    // 通用数学表达式检测
+    const generalMathRegex = /[\d+\-*/()=]/;
+    if (generalMathRegex.test(userMessage)) {
+      // 提取所有数字和运算符
+      const extracted = userMessage.match(/[\d+\-*/.()=]+/g);
+      if (extracted && extracted.length > 0) {
+        const expression = extracted.join('').replace(/=+$/, '');
+        if (/^[\d+\-*/.()]+$/.test(expression)) {
+          return {
+            code: `
+// 自动提取的数学表达式
+const expression = "${expression}";
+const result = ${expression};
+console.log(\`计算 \${expression} = \${result}\`);
+            `.trim(),
+            language: 'javascript',
+            enableDebug: false,
+            timeout: 5000
+          };
+        }
+      }
+    }
+    
+    // 默认返回用户消息作为代码
+    return {
+      code: userMessage,
+      language: 'javascript',
+      enableDebug: false,
+      timeout: 5000
+    };
+  }
+  
+  private normalizeLanguage(language: string): 'javascript' | 'python' | 'typescript' | 'sql' | 'shell' {
+    const normalized = language.toLowerCase();
+    switch (normalized) {
+      case 'js':
+      case 'javascript':
+        return 'javascript';
+      case 'ts':
+      case 'typescript':
+        return 'typescript';
+      case 'py':
+      case 'python':
+        return 'python';
+      case 'sql':
+      case 'mysql':
+      case 'postgresql':
+        return 'sql';
+      case 'bash':
+      case 'sh':
+      case 'shell':
+        return 'shell';
+      default:
+        return 'javascript';
+    }
+  }
+  
+  private async generateGenericToolInput(userMessage: string, tool: Tool): Promise<Record<string, unknown>> {
     const prompt = this.language === 'zh' ?
       `用户请求："${userMessage}"
       
 需要使用工具：${tool.name} - ${tool.description}
 
-请根据用户请求生成合适的工具输入参数，以JSON格式回复。` :
+请根据用户请求和工具功能，生成合适的工具输入参数。
+工具参数应该包含完成用户请求所需的所有信息。
+请以JSON格式回复，只返回参数对象，不要包含任何解释。
+
+例如：
+{"param1": "value1", "param2": "value2"}` :
       `User Request: "${userMessage}"
       
 Tool to use: ${tool.name} - ${tool.description}
-Tool Parameters: (Dynamic based on tool requirements)
 
-Please generate appropriate tool input parameters based on the user request, reply in JSON format.`;
+Please generate appropriate tool input parameters based on the user request and tool functionality.
+Tool parameters should contain all information needed to complete the user request.
+Reply in JSON format only, return parameter object without any explanation.
+
+Example:
+{"param1": "value1", "param2": "value2"}`;
     
     try {
+      const taskParams = this.getTaskParams('summary');
       const response = await this.openai.chat.completions.create({
         model: this.model,
         messages: [{ role: 'user', content: prompt }],
-        max_tokens: 300,
-        temperature: 0.2,
+        ...taskParams,
       });
       
       const result = response.choices[0]?.message?.content || '{}';

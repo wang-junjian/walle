@@ -1,9 +1,89 @@
 // 智能体工具系统
+import { debugLogger } from './debug-logger';
+
 export interface Tool {
   name: string;
   description: string;
   execute: (input: Record<string, unknown>) => Promise<Record<string, unknown>>;
 }
+
+// 智能网络搜索工具
+export const webSearchTool: Tool = {
+  name: 'web_search',
+  description: '智能网络搜索工具，支持多种搜索策略',
+  execute: async (input: Record<string, unknown>) => {
+    const startTime = Date.now();
+    try {
+      debugLogger.info('TOOL_EXECUTION', 'Starting web search', { input });
+      
+      const { query, searchType = 'general' } = input as { 
+        query: string; 
+        searchType?: 'general' | 'technical' | 'news' | 'academic';
+      };
+      
+      // 导入真实工具实现
+      const { REAL_TOOLS } = await import('./real-tools');
+      const result = await REAL_TOOLS.web_search.execute({
+        query,
+        searchType,
+        maxResults: 5,
+        language: 'zh'
+      });
+
+      const endTime = Date.now();
+      debugLogger.logToolExecution('web_search', input, result);
+      debugLogger.logPerformance('web_search', endTime - startTime);
+      
+      return result;
+    } catch (error) {
+      const endTime = Date.now();
+      debugLogger.logToolExecution('web_search', input, undefined, error as Error);
+      debugLogger.logPerformance('web_search', endTime - startTime, { error: true });
+      throw error;
+    }
+  }
+};
+
+// 代码执行工具
+export const codeExecutionTool: Tool = {
+  name: 'code_execution',
+  description: '安全代码执行工具，支持多种编程语言',
+  execute: async (input: Record<string, unknown>) => {
+    const startTime = Date.now();
+    try {
+      debugLogger.info('TOOL_EXECUTION', 'Starting code execution', { 
+        language: input.language,
+        codeLength: typeof input.code === 'string' ? input.code.length : 0
+      });
+      
+      const { code, language, enableDebug = false } = input as { 
+        code: string; 
+        language: 'javascript' | 'python' | 'typescript' | 'sql' | 'shell';
+        enableDebug?: boolean;
+      };
+      
+      // 导入真实工具实现
+      const { REAL_TOOLS } = await import('./real-tools');
+      const result = await REAL_TOOLS.code_execution.execute({
+        code,
+        language,
+        enableDebug,
+        timeout: 5000
+      });
+
+      const endTime = Date.now();
+      debugLogger.logToolExecution('code_execution', input, result);
+      debugLogger.logPerformance('code_execution', endTime - startTime);
+      
+      return result;
+    } catch (error) {
+      const endTime = Date.now();
+      debugLogger.logToolExecution('code_execution', input, undefined, error as Error);
+      debugLogger.logPerformance('code_execution', endTime - startTime, { error: true });
+      throw error;
+    }
+  }
+};
 
 // 搜索工具
 export const searchTool: Tool = {
@@ -197,6 +277,8 @@ export const dataAnalysisTool: Tool = {
 
 // 所有可用工具
 export const AVAILABLE_TOOLS: Record<string, Tool> = {
+  web_search: webSearchTool,
+  code_execution: codeExecutionTool,
   search: searchTool,
   calculator: calculatorTool,
   code_analysis: codeAnalysisTool,
@@ -204,34 +286,66 @@ export const AVAILABLE_TOOLS: Record<string, Tool> = {
   data_analysis: dataAnalysisTool
 };
 
-// 根据任务选择合适的工具
-export function selectToolsForTask(message: string): Tool[] {
-  const tools: Tool[] = [];
-  const lowerMessage = message.toLowerCase();
-  
-  if (lowerMessage.includes('搜索') || lowerMessage.includes('查找') || lowerMessage.includes('search')) {
-    tools.push(searchTool);
+// 智能工具选择：使用决策引擎而不是关键字匹配
+export async function selectToolsForTask(message: string): Promise<Tool[]> {
+  try {
+    // 使用智能决策引擎
+    const { getDecisionEngine } = await import('./intelligent-decision-engine');
+    const decisionEngine = getDecisionEngine();
+    
+    const decision = await decisionEngine.analyzeUserRequest(message);
+    
+    // 根据决策结果选择工具
+    const tools: Tool[] = [];
+    
+    for (const toolName of decision.toolsRequired) {
+      switch (toolName) {
+        case 'web_search':
+          tools.push(webSearchTool);
+          break;
+        case 'code_execution':
+          tools.push(codeExecutionTool);
+          break;
+        case 'calculator':
+          tools.push(calculatorTool);
+          break;
+        case 'code_analysis':
+          tools.push(codeAnalysisTool);
+          break;
+        case 'file_operation':
+          tools.push(fileOperationTool);
+          break;
+        case 'data_analysis':
+          tools.push(dataAnalysisTool);
+          break;
+      }
+    }
+    
+    console.log(`智能决策结果: ${decision.reasoning}, 工具: [${decision.toolsRequired.join(', ')}]`);
+    return tools;
+    
+  } catch (error) {
+    console.error('智能工具选择失败，使用简化逻辑:', error);
+    return fallbackToolSelection(message);
+  }
+}
+
+// 简化的后备工具选择
+function fallbackToolSelection(message: string): Tool[] {
+  // 数学计算
+  if (/[\d+\-*/()=]/.test(message) && (message.includes('计算') || /^\s*[\d\s+\-*/().=]+\s*$/.test(message))) {
+    return [codeExecutionTool];
   }
   
-  if (lowerMessage.includes('计算') || lowerMessage.includes('数学') || lowerMessage.includes('算') || lowerMessage.includes('math')) {
-    tools.push(calculatorTool);
+  // 明确的搜索请求
+  if (message.includes('搜索') || message.includes('最新') || message.includes('查找')) {
+    return [webSearchTool];
   }
   
-  if (lowerMessage.includes('代码') || lowerMessage.includes('程序') || lowerMessage.includes('code') || lowerMessage.includes('编程')) {
-    tools.push(codeAnalysisTool);
+  // 编程相关
+  if (message.includes('代码') || message.includes('编程') || message.includes('函数')) {
+    return [codeExecutionTool];
   }
   
-  if (lowerMessage.includes('文件') || lowerMessage.includes('目录') || lowerMessage.includes('file') || lowerMessage.includes('folder')) {
-    tools.push(fileOperationTool);
-  }
-  
-  if (lowerMessage.includes('数据') || lowerMessage.includes('统计') || lowerMessage.includes('分析') || lowerMessage.includes('data')) {
-    tools.push(dataAnalysisTool);
-  }
-  
-  if (tools.length === 0) {
-    tools.push(searchTool);
-  }
-  
-  return tools;
+  return [];
 }

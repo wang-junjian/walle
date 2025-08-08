@@ -4,6 +4,7 @@ import OpenAI from 'openai';
 import { AgentThought, SubAgent } from '@/types/chat';
 import { AgentFactory } from '@/utils/modern-agent-system';
 import { selectToolsForTask } from '@/utils/agent-tools';
+import { debugLogger } from '@/utils/debug-logger';
 
 // Initialize OpenAI client
 const initializeOpenAI = (modelConfig?: { apiKey?: string; apiBase?: string } | null) => {
@@ -41,6 +42,7 @@ const processSingleAgent = async (
 ) => {
   const agent = AgentFactory.createAgent('analyst', openai, model, language);
   const allThoughts: AgentThought[] = [];
+  const allToolResults: Array<{ toolName: string; input: Record<string, unknown>; output: Record<string, unknown> }> = [];
   
   // 流式更新回调函数
   const onThoughtUpdate = (thought: AgentThought) => {
@@ -66,15 +68,32 @@ const processSingleAgent = async (
   const thinkingThought = await agent.thinkStream(observationThought.content, message, onThoughtUpdate);
   allThoughts.push(thinkingThought);
 
-  // Action phase with streaming
-  const tools = selectToolsForTask(message);
+  // Action phase with streaming - 收集工具结果
+  const tools = await selectToolsForTask(message);
   if (tools.length > 0) {
     const actionThought = await agent.executeActionStream(message, tools[0].name, onThoughtUpdate);
     allThoughts.push(actionThought);
+    
+    // 收集工具执行结果
+    if (actionThought.tool_output) {
+      allToolResults.push({
+        toolName: actionThought.tool_name || tools[0].name,
+        input: actionThought.tool_input || {},
+        output: actionThought.tool_output
+      });
+    }
   }
 
   // Reflection phase with streaming
-  await agent.reflectStream(allThoughts, thinkingThought.content, onThoughtUpdate);
+  const reflectionThought = await agent.reflectStream(allThoughts, thinkingThought.content, onThoughtUpdate);
+  allThoughts.push(reflectionThought);
+  
+  // 返回智能体的思考结果和工具输出，供最终回答使用
+  return {
+    thoughts: allThoughts,
+    toolResults: allToolResults,
+    agentAnalysis: reflectionThought.content
+  };
 };
 
 // Multi-agent processing
@@ -119,6 +138,7 @@ const processMultiAgent = async (
   })}\n\n`));
 
   const allThoughts: AgentThought[] = [];
+  const allToolResults: Array<{ toolName: string; input: Record<string, unknown>; output: Record<string, unknown>; agentName: string }> = [];
   
   // 流式更新回调函数
   const onThoughtUpdate = (thought: AgentThought) => {
@@ -159,10 +179,20 @@ const processMultiAgent = async (
       progress: 70
     })}\n\n`));
 
-    const tools = selectToolsForTask(message);
+    const tools = await selectToolsForTask(message);
     if (tools.length > 0) {
       const actionThought = await agent.executeActionStream(message, tools[0].name, onThoughtUpdate);
       allThoughts.push(actionThought);
+      
+      // 收集工具执行结果
+      if (actionThought.tool_output) {
+        allToolResults.push({
+          toolName: actionThought.tool_name || tools[0].name,
+          input: actionThought.tool_input || {},
+          output: actionThought.tool_output,
+          agentName: agent.getName()
+        });
+      }
     }
 
     subAgent.progress = 90;
@@ -198,16 +228,25 @@ const processMultiAgent = async (
     status: 'completed',
     content: collaborationThought.content
   })}\n\n`));
+  
+  // 返回多智能体的思考结果和工具输出
+  return {
+    thoughts: allThoughts,
+    toolResults: allToolResults,
+    collaborationSummary: collaborationThought.content
+  };
 };
 
 export async function POST(request: NextRequest) {
-  console.log('智能体 API 端点被调用');
+  const startTime = Date.now();
+  debugLogger.info('AGENT_API', 'Agent API request started');
+  
   const encoder = new TextEncoder();
   
   const stream = new ReadableStream({
     async start(controller) {
       try {
-        console.log('开始处理智能体请求');
+        debugLogger.debug('AGENT_API', 'Processing agent request');
         const formData = await request.formData();
         const message = formData.get('message') as string;
         const imageFile = formData.get('image') as File | null;
@@ -215,7 +254,16 @@ export async function POST(request: NextRequest) {
         const selectedModel = formData.get('model') as string;
         const language = formData.get('language') as string || 'zh';
 
+        debugLogger.logApiRequest('/api/agent', 'POST', {
+          hasMessage: !!message,
+          messageLength: message?.length || 0,
+          hasImage: !!imageFile,
+          selectedModel: selectedModel || 'default',
+          language
+        });
+
         if (!message && !imageFile) {
+          debugLogger.warn('AGENT_API', 'No message or image provided');
           throw new Error('Either message or image is required');
         }
 
@@ -245,25 +293,111 @@ export async function POST(request: NextRequest) {
                              message.toLowerCase().includes('分析') ||
                              message.toLowerCase().includes('比较');
 
+        debugLogger.info('AGENT_API', 'Agent configuration', {
+          selectedModel: modelToUse,
+          language,
+          isComplexTask: isComplexTask
+        });
+
+        let agentResults;
         if (isComplexTask) {
-          await processMultiAgent(message, openai, modelToUse, language, controller, encoder);
+          debugLogger.info('AGENT_API', 'Using multi-agent processing');
+          agentResults = await processMultiAgent(message, openai, modelToUse, language, controller, encoder);
         } else {
-          await processSingleAgent(message, openai, modelToUse, language, controller, encoder);
+          debugLogger.info('AGENT_API', 'Using single agent processing');
+          agentResults = await processSingleAgent(message, openai, modelToUse, language, controller, encoder);
         }
 
-        // Generate final response
+        // Generate final response based on agent analysis and tool results
         const history = conversationHistory ? JSON.parse(conversationHistory) : [];
+        
+        // 构建包含智能体分析和工具结果的上下文
+        let contextualPrompt = `用户请求: ${message}\n\n`;
+        
+        // 添加工具执行结果
+        if (agentResults.toolResults && agentResults.toolResults.length > 0) {
+          contextualPrompt += "=== 工具执行结果 ===\n";
+          agentResults.toolResults.forEach((toolResult, index) => {
+            contextualPrompt += `工具 ${index + 1}: ${toolResult.toolName}\n`;
+            contextualPrompt += `输入: ${JSON.stringify(toolResult.input, null, 2)}\n`;
+            contextualPrompt += `输出: ${JSON.stringify(toolResult.output, null, 2)}\n\n`;
+          });
+        }
+        
+        // 添加智能体分析
+        if ('agentAnalysis' in agentResults && agentResults.agentAnalysis) {
+          contextualPrompt += `=== 智能体分析 ===\n${agentResults.agentAnalysis}\n\n`;
+        } else if ('collaborationSummary' in agentResults && agentResults.collaborationSummary) {
+          contextualPrompt += `=== 多智能体协作总结 ===\n${agentResults.collaborationSummary}\n\n`;
+        }
+        
+        contextualPrompt += `基于以上工具执行结果和分析，请为用户提供准确、有用的回答。如果工具执行了计算，请直接使用工具的计算结果，不要重新计算。`;
+
         const messages = [
           ...history,
-          { role: 'user', content: message }
+          { 
+            role: 'user', 
+            content: contextualPrompt
+          }
         ];
+
+        // Calculate safe max_tokens for agent response
+        const calculateSafeMaxTokens = (modelConfig: { contextLength?: number; maxTokens?: number } | null, inputTokensEstimate: number = 200) => {
+          const contextLength = modelConfig?.contextLength || 4096;
+          const configuredMaxTokens = modelConfig?.maxTokens || 2000;
+          
+          // 特殊处理某些已知限制的模型
+          const modelSpecificLimits: Record<string, number> = {
+            'lgai/exaone-3-5-32b-instruct': 32768,
+            'Qwen/Qwen2.5-Coder-7B-Instruct': 32768,
+            'Qwen/Qwen2.5-Coder-32B-Instruct': 32768,
+            'Qwen/Qwen3-30B-A3B': 32768
+          };
+          
+          const actualContextLimit = modelSpecificLimits[modelToUse] || contextLength;
+          
+          // Reserve more tokens for agent processing and safety margin
+          const maxOutputTokens = Math.max(
+            Math.min(
+              configuredMaxTokens, 
+              actualContextLimit - inputTokensEstimate - 300, // More conservative for agents
+              4096 // Conservative max for agent responses
+            ),
+            200 // Minimum output tokens for agent
+          );
+          
+          debugLogger.debug('AGENT_API', 'Agent token calculation', {
+            model: modelToUse,
+            contextLength,
+            actualContextLimit,
+            configuredMaxTokens,
+            inputTokensEstimate,
+            calculatedMaxTokens: maxOutputTokens
+          });
+          
+          return maxOutputTokens;
+        };
+
+        // Estimate input tokens for all messages
+        const inputText = messages.map(msg => 
+          typeof msg.content === 'string' ? msg.content : ''
+        ).join(' ');
+        const estimatedInputTokens = Math.ceil(inputText.length / 4);
+        const safeMaxTokens = calculateSafeMaxTokens(modelConfig, estimatedInputTokens);
 
         const finalResponse = await openai.chat.completions.create({
           model: modelToUse,
           messages,
-          max_tokens: 2000,
-          temperature: 0.7,
+          max_tokens: safeMaxTokens,
+          temperature: Math.min(modelConfig?.temperature || 0.7, 0.3), // 智能体使用较低温度以确保准确性
           stream: true,
+        });
+
+        debugLogger.logModelCall(modelToUse, {
+          messages,
+          max_tokens: safeMaxTokens,
+          temperature: Math.min(modelConfig?.temperature || 0.7, 0.3),
+          stream: true
         });
 
         for await (const chunk of finalResponse) {
@@ -276,10 +410,21 @@ export async function POST(request: NextRequest) {
           }
         }
 
+        const endTime = Date.now();
+        debugLogger.logPerformance('agent_api_total', endTime - startTime, {
+          model: modelToUse,
+          isComplexTask,
+          hasToolResults: !!(agentResults.toolResults && agentResults.toolResults.length > 0)
+        });
+
         controller.enqueue(encoder.encode(`data: [DONE]\n\n`));
         controller.close();
 
       } catch (error) {
+        debugLogger.error('AGENT_API', 'Agent error', {
+          error: error instanceof Error ? error.message : 'Unknown error',
+          stack: error instanceof Error ? error.stack : undefined
+        });
         console.error('Agent error:', error);
         controller.enqueue(encoder.encode(`data: ${JSON.stringify({
           type: 'error',
